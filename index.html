@@ -1,0 +1,15 @@
+<script src="js/lib/require.js"></script>
+<script>
+requirejs.config({
+    paths: {
+        "Klass":"klass/Klass",
+        "assert":"klass/assert",
+        "FuncUtil":"klass/FuncUtil",
+    },
+    baseUrl:"js",
+});
+requirejs(["SEnv"],function (SEnv) {
+    window.senv=SEnv();
+
+});
+</script>

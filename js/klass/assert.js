@@ -75,6 +75,10 @@ define([],function () {
                 this.assert(typeof(v)=="number",[v,"should be a number"]);
                 return this.isBool()?true:value;
             }
+            if (t===Boolean || t=="boolean") {
+                this.assert(typeof(v)=="boolean",[v,"should be a boolean"]);
+                return this.isBool()?true:value;
+            }
             if (t instanceof RegExp || (typeof global=="object" && typeof global.RegExp=="function" && t instanceof global.RegExp)) {
                 this.is(v,String);
                 this.assert(t.exec(v),[v,"does not match to",t]);
