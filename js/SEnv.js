@@ -597,6 +597,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             if (t.WavPlaying) return;
             // inherited Start;
             t.WavPlaying=true;
+            t.SeqTime=0;
             for (ch = 0; ch < Chs; ch++) {
                 //t.nextPokeElemIdx[i] = 0;
                 //t.nextPeekElemIdx[i] = 0;
