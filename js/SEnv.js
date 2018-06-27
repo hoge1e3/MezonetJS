@@ -126,7 +126,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             SeqTime120: Integer,
 
             WavOutMode: Boolean,
-            WavPlaying: Boolean,
+            //WavPlaying: Boolean,
             /*{$ifdef ForM2}
             WavOutObj:TWaveSaver,
             {$endif}*/
@@ -256,7 +256,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
         },
         getPlayPos: function(t) { //Integer;
-            if (!t.WavPlaying) return 0;
+            //if (!t.WavPlaying) return 0;
             return 0;
             /*    mmt.wType=TIME_SAMPLES;
                 WaveOutGetPosition (hwo, @mmt, SizeOf(MMTIME));
@@ -341,7 +341,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             var i, j; //:Integer;
 
             t.initNode({});
-            t.WavPlaying=false;
+            //t.WavPlaying=false;
             // inherited Create (Handle);
             t.Delay = 2000;
             t.Pos = t.PrevPos = t.RPos = t.WriteAd = t.SeqTime =
@@ -447,9 +447,10 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 bufSrc.noteOn(0);
                 bufSrc.connect(this.node);
             }
-            this.isPlaying = false;
+            this.isNodeConnected = false;
         },
         playNode: function () {
+            if (this.isNodeConnected) return;
             var registers=this.registers;
             this.time=0;
 
@@ -465,11 +466,11 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 }
             };
             this.node.connect(this.context.destination);
-            this.isPlaying = true;
+            this.isNodeConnected = true;
         },
         stopNode : function () {
             this.node.disconnect();
-            this.isPlaying = false;
+            this.isNodeConnected = false;
         },
 
 
@@ -594,9 +595,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         //procedure TEnveloper.Start;
         Start: function(t) {
             var ch; //:Integer;
-            if (t.WavPlaying) return;
+            //if (t.WavPlaying) return;
             // inherited Start;
-            t.WavPlaying=true;
+            //t.WavPlaying=true;
             t.SeqTime=0;
             for (ch = 0; ch < Chs; ch++) {
                 //t.nextPokeElemIdx[i] = 0;
@@ -664,7 +665,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 LParam, HParam, WParam, //:Byte;
                 JmpSafe, EnvFlag, //:Integer;
                 se; //:^TSoundElem;
-            if (!(t.WavPlaying)) return;
+            //if (!(t.WavPlaying)) return;
             //if ( t.BSize>wDataSize ) t.BSize=wDataSize;
             //mmt.wType=TIME_SAMPLES;
             //WaveOutGetPosition (hwo, @mmt, SizeOf(MMTIME));
