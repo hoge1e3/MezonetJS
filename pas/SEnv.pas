@@ -34,7 +34,7 @@ const
 
     Mend=255;
 
-    //sync=0:”ñ“¯ŠúA1:“¯ŠúA2:ƒƒ“ƒVƒ‡ƒbƒg 3:‹˜”gŒ`
+    //sync=0:éåŒæœŸã€1:åŒæœŸã€2:ãƒ¯ãƒ³ã‚·ãƒ§ãƒƒãƒˆ 3:é‹¸æ³¢å½¢
     LASync = 0;
     LSync= 1;
     LOneShot =2;
@@ -89,7 +89,7 @@ type
          Detune:array [0..Chs-1] of Integer;
          PorStart,PorEnd,PorLen:array [0..Chs-1] of Integer;
          LfoV,LfoA,LfoC,LfoD,LfoDC,LfoSync:array [0..Chs-1] of Integer;
-         //sync=0:”ñ“¯ŠúA1:“¯ŠúA2:ƒƒ“ƒVƒ‡ƒbƒg 3:‹˜”gŒ`
+         //sync=0:éåŒæœŸã€1:åŒæœŸã€2:ãƒ¯ãƒ³ã‚·ãƒ§ãƒƒãƒˆ 3:é‹¸æ³¢å½¢
          Fading:Integer;
 
          CurWav:array [0..Chs-1] of Integer;
@@ -183,7 +183,7 @@ end;
 procedure TEnveloper.setSoundTime(ch:Integer; typ:Integer; val:Integer; t:Integer);
 var e:^TSoundElem;
 begin
-     soundMode[ch]:=True; // TODO: ‚Ù‚ñ‚Æ‚Í‚Ü‚¸‚¢(t ‚ª‰“‚¢–¢—ˆ‚Ì‚Î‚ ‚¢j
+     soundMode[ch]:=True; // TODO: ã»ã‚“ã¨ã¯ã¾ãšã„(t ãŒé ã„æœªæ¥ã®ã°ã‚ã„ï¼‰
      e:=@sndElems[ch, nextPokeElemIdx[ch]];
      e.time:=t;
      e.typ:=typ;
@@ -641,7 +641,7 @@ begin
                            //MCount[ch]:=SPS div Byte((MPoint[ch]+1)^);
                            MCount[ch]:=SeqTime+
                            ( Byte((MPoint[ch]+1)^)+Byte((MPoint[ch]+2)^)*256 )*2;
-                           // SPS=22050‚Ìê‡ *2 ‚ğ *1 ‚ÉB
+                           // SPS=22050ã®å ´åˆ *2 ã‚’ *1 ã«ã€‚
                            inc (MPoint[ch],3);
 
                        end;
@@ -654,7 +654,7 @@ begin
                             Slur[ch]:=False;
                             MCount[ch]:=SeqTime+
                             ( Byte((MPoint[ch]+3)^)+Byte((MPoint[ch]+4)^)*256 )*2;
-                           // SPS=22050‚Ìê‡ *2 ‚ğ *1 ‚ÉB
+                           // SPS=22050ã®å ´åˆ *2 ã‚’ *1 ã«ã€‚
                             PorLen[ch]:=MCount[ch]-SeqTime;
                             inc (MPoint[ch],5);
                        end;

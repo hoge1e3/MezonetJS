@@ -41,7 +41,12 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         FadeMax = 256,
 
         div = function(x, y) {
-            return Math.trunc(x / y);
+            return Math.trunc(chkn(x,"x") / chkn(y,"y") );
+        },
+        chkn = function (x,mesg) {
+            if (x!==x) throw new Error(mesg+": Not a number!");
+            if (typeof x!=="number") {console.error(x);throw new Error(mesg+": Not a not a number but not a number!");}
+            return x;
         },
         abs = Math.abs.bind(Math),
         ShortInt = function(b) {
@@ -57,9 +62,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         Integer = Number,
         sinMax_s = 5,
         sinMax = 65536 >> sinMax_s, //2048,
-        SPS = 44100,
+        /*SPS = 44100,
         SPS96 = 22080,
-        SPS_60 = div(44100, 60),
+        SPS_60 = div(44100, 60),*/
         DivClock = 111860.78125,
         Loops = 163840,
 
@@ -89,12 +94,11 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         nil = null,
         False = false,
         True = true,
-        ESQ = 1,
         //TPlayState = (psPlay,psStop,psWait,psPause);
-        psPlay = ESQ++,
-        psStop = ESQ++,
-        psWait = ESQ++,
-        psPause = ESQ++,
+        psPlay = "psPlay",
+        psStop = "psStop",
+        psWait = "psWait",
+        psPause = "psPause",
         m2tInt=[], //:array[0..95] of Integer;
         sinT = [], //:array [0..sinMAX-1] of ShortInt;
         TTL, //:Integer;
@@ -221,7 +225,36 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         implementation
 
         uses SMezonet;*/
-
+        load:function (t,d) {
+            var ver=readLong(d);
+            var chs=readByte(d);
+            t.MPoint=chdatas=[];
+            for (var i=0;i<chs;i++) {
+                var chdata=[];
+                chdatas.push(chdata);
+                var len=readLong(d);
+                //console.log(len);
+                //if(len>999999) throw new Error("LONG");
+                for (var j=0;j<len;j++) {
+                    chdata.push(readByte(d));
+                }
+            }
+            function readByte(a) {
+                if (a.length==0) throw new Error("Out of data");
+                return a.shift();
+            }
+            function readLong(a) {
+                if (a.length<4) throw new Error("Out of data");
+                var r=a.shift(),e=1;
+                e<<=8;
+                r+=a.shift()*e;
+                e<<=8;
+                r+=a.shift()*e;
+                e<<=8;
+                r+=a.shift()*e;
+                return r;
+            }
+        },
         getPlayPos: function(t) { //Integer;
             if (!t.WavPlaying) return 0;
             return 0;
@@ -289,7 +322,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             var i; //:Integer;
             m2tInt=[];
             for (i = 0; i < 96; i++) {
-                m2tInt[i] = Math.trunc(DivClock * 65536 / m2t[i] * 65536 / SPS);
+                m2tInt[i] = Math.trunc(DivClock * 65536 / m2t[i] * 65536 / t.sampleRate);
             }
         },
         InitWave: function(t) {
@@ -306,6 +339,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
 
         $: function(t) {
             var i, j; //:Integer;
+
+            t.initNode({});
             t.WavPlaying=false;
             // inherited Create (Handle);
             t.Delay = 2000;
@@ -359,7 +394,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 t.MCount[i]=0;
                 t.Resting[i]=0;
                 t.Steps[i] = 0;
-                t.SccWave[i] = [];
+                t.SccWave[i] = t.WaveDat[0];
                 t.SccCount[i] = 0;
                 t.EShape[i] = t.EnvDat[0];
                 t.EVol[i] = 0;
@@ -393,6 +428,51 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.Tempo = 120;
             t.ComStr = '';
         },
+        initNode: function (options) {
+            var channel=1;
+            options=options||{};
+            for (var i in options) this[i]=options[i];
+            this.streamLength= this.streamLength || 4096;
+            if (typeof (webkitAudioContext) !== "undefined") {
+                this.context = new webkitAudioContext();
+            } else if (typeof (AudioContext) !== "undefined") {
+                this.context = new AudioContext();
+            }
+            this.sampleRate = this.context.sampleRate;
+            var bufSrc = this.context.createBufferSource();
+            console.log(bufSrc);
+            console.log(bufSrc.noteOn);
+            this.node = this.context.createScriptProcessor(this.streamLength , 1, channel);
+            if (typeof bufSrc.noteOn=="function") {
+                bufSrc.noteOn(0);
+                bufSrc.connect(this.node);
+            }
+            this.isPlaying = false;
+        },
+        playNode: function () {
+            var registers=this.registers;
+            this.time=0;
+
+            var t=this;
+            var count=0;
+            this.node.onaudioprocess = function (event) {
+                var data = event.outputBuffer.getChannelData(0);
+                var len = data.length;
+                var i;
+                t.RefreshPSG(len);
+                for (i = 0; i < len; i++) {
+                    data[i] = t.wdata2[i]/32768;
+                }
+            };
+            this.node.connect(this.context.destination);
+            this.isPlaying = true;
+        },
+        stopNode : function () {
+            this.node.disconnect();
+            this.isPlaying = false;
+        },
+
+
         //PutEnv (c,t,v,sp:Word;s:PChar);
         /*PutEnv: function(t, c, time, v, sp, s) {
             t.Sound[c * 2] = time & 255;
@@ -424,7 +504,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             } else {
                 if (t.L2WL[c] >= 2) {
                     //Steps[c]:=($40000000 shr (L2WL[c]-2)) div (m2tInt[36] div 65536) * (m2tInt[n] div 65536);
-                    t.Steps[c] = div(0x40000000 >> (t.L2WL[c] - 2), div(m2tInt[36], 65536)) * div(m2tInt[n], 65536);
+                    t.Steps[c] = div(0x40000000 >>> (t.L2WL[c] - 2), div(m2tInt[36], 65536)) * div(m2tInt[n], 65536);
                 }
             }
             t.PorLen[c] = -1;
@@ -438,9 +518,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
              Resting[c]=False;
 
              //TP=m2t[f];
-             PorStart[c]=m2tInt[f]+Detune[c]*m2tInt[f] div 2048;//Trunc (DivClock/TP*65536/SPS)+Detune[c];
+             PorStart[c]=m2tInt[f]+Detune[c]*m2tInt[f] div 2048;//Trunc (DivClock/TP*65536/t.sampleRate)+Detune[c];
              //TP=m2t[t];
-             PorEnd[c]=m2tInt[t]+Detune[c]*m2tInt[t] div 2048;//Trunc (DivClock/TP*65536/SPS)+Detune[c];
+             PorEnd[c]=m2tInt[t]+Detune[c]*m2tInt[t] div 2048;//Trunc (DivClock/TP*65536/t.sampleRate)+Detune[c];
 
              if ! (iss) ) ECount[c]=0;
 
@@ -468,14 +548,14 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         end;
         {$endif}*/
         //procedure TEnveloper.PlayMML (c:Word;s:PChar);
-        PlayMML: function(t, c, s) { // s array of compiled mml (bytearray)
+        /*PlayMML: function(t, c, s) { // s array of compiled mml (bytearray)
             if ((c < 0) || (c >= Chs)) return; // ) return;
             t.MPoint[c] = s;
             t.MPointC[c] = 0;
             t.PlayState[c] = psPlay;
             t.MCount[c] = t.SeqTime;
             //t.LoopCount = Loops + 1;
-        },
+        },*/
         //procedure TEnveloper.StopMML (c:Integer);
         StopMML: function(t, c) {
             if ((c < 0) || (c >= Chs)) return; // ) return;
@@ -513,17 +593,21 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         },
         //procedure TEnveloper.Start;
         Start: function(t) {
-            var i; //:Integer;
+            var ch; //:Integer;
             if (t.WavPlaying) return;
             // inherited Start;
-
-            for (i = 0; i < Chs; i++) {
+            t.WavPlaying=true;
+            for (ch = 0; ch < Chs; ch++) {
                 //t.nextPokeElemIdx[i] = 0;
                 //t.nextPeekElemIdx[i] = 0;
-                t.soundMode[i] = False;
+                t.soundMode[ch] = False;
+                t.MPointC[ch] = 0;
+                t.PlayState[ch] = psPlay;
+                t.MCount[ch] = t.SeqTime;
             }
             t.LastWriteEndPos = 0;
             t.BeginPlay = True;
+            t.playNode();
         },
         //procedure TEnveloper.SelWav (ch,n:Integer);
         SelWav: function(t, ch, n) {
@@ -622,6 +706,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }*/
             t.WriteAd = 0;
             WriteMax = BSize - 1;
+            //console.log(t.WriteAd, WriteMax);
             while (t.WriteAd != WriteMax) {
                 LfoInc = !LfoInc;
                 WSum = 0; //128;   // 0 for 16bit
@@ -645,12 +730,12 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     else if ((t.Resting[ch]))
                         v = 0;
                     else
-                        v = t.EShape[ch][t.ECount[ch] >> 11] * t.EVol[ch] * t.EBaseVol[ch]; // 16bit
+                        v = t.EShape[ch][t.ECount[ch] >>> 11] * t.EVol[ch] * t.EBaseVol[ch]; // 16bit
                     if (t.Fading < FadeMax) {
                         v = v * div(t.Fading, FadeMax); // 16bit
                     }
                     if (v > 0) {
-                        i = t.SccCount[ch] >> (32 - t.L2WL[ch]);
+                        i = chkn(t.SccCount[ch] >>> (32 - t.L2WL[ch]));
                         //inext=(i+1) & ((1 << L2WL[ch])-1);
 
                         //mid=(SccCount[ch] >> (24-L2WL[ch])) & 255;
@@ -658,7 +743,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         // *****000 00000000 00000000 00000000
                         //                      ***** 00000000
 
-                        w1 = t.SccWave[ch][i];
+                        w1 = chkn(t.SccWave[ch][i]);
+                        chkn(v);
                         //w2=Byte((SccWave[ch]+inext)^) ;
 
                         WSum += (
@@ -675,7 +761,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                 (t.LfoDC[ch] -= t.Tempo);
                             } else {
                                 (t.SccCount[ch] +=
-                                    sinT[t.LfoC[ch] >> (16 + sinMax_s)] *
+                                    sinT[t.LfoC[ch] >>> (16 + sinMax_s)] *
                                     div(t.Steps[ch], 512) *
                                     div(t.LfoA[ch], 256)
                                 );
@@ -695,6 +781,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                             div(t.PorEnd[ch], t.PorLen[ch] * (t.PorLen[ch] - Tmporc))
                         );
                     }
+                    //if (ch==0) console.log("ch",ch,"Code",t.MCount[ch],t.SeqTime);
 
                     while (t.MCount[ch] <= t.SeqTime) {
                         //MCount[ch]=0;
@@ -702,6 +789,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         LParam = t.MPoint[ch][pc + 1];
                         HParam = t.MPoint[ch][pc + 2];
                         var code = t.MPoint[ch][pc];
+                        //console.log("ch",ch,"Code",code)
                         if (code >= 0 && code < 96 || code === MRest) {
                             t.Play1Sound(ch, code, t.Slur[ch]);
                             if (!t.Slur[ch]) t.LfoDC[ch] = t.LfoD[ch];
@@ -845,7 +933,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                 break;
                             case MLfoD:
                                 {
-                                    t.LfoD[ch] = LParam * SPS;
+                                    t.LfoD[ch] = LParam * t.sampleRate;
                                     t.MPointC[ch] += 2;
                                 }
                                 break;

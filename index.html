@@ -1,3 +1,5 @@
+<canvas id="c" width=1024 height=256>
+</canvas>
 <script src="js/lib/require.js"></script>
 <script>
 requirejs.config({
@@ -8,8 +10,6 @@ requirejs.config({
     },
     baseUrl:"js",
 });
-requirejs(["SEnv"],function (SEnv) {
-    window.senv=SEnv();
-
+requirejs(["test"],function (SEnv) {
 });
 </script>
