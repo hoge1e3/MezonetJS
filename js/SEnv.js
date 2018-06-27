@@ -59,6 +59,14 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             return a;
         },
+        array2Int= function (ary,idx) {
+            var r=ary[idx];
+            r+=ary[idx+1]*0x100;
+            r+=ary[idx+2]*0x10000;
+            r+=ary[idx+3]*0x1000000;
+            if (r>=0x80000000) r-=0x100000000;
+            return r;
+        },
         Integer = Number,
         sinMax_s = 5,
         sinMax = 65536 >> sinMax_s, //2048,
@@ -874,14 +882,21 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                 {
                                     if (t.WavOutMode) {
                                         t.MPointC[ch] += 5;
-                                    } else
-                                        t.MPointC[ch] +=
-                                        LParam << 0 +
+                                    } else {
+                                        /*console.log("old mpointc ",t.MPointC[ch],LParam,HParam,t.MPoint[ch][pc + 3],t.MPoint[ch][pc + 4],LParam << 0 +
                                         HParam << 8 +
                                         t.MPoint[ch][pc + 3] << 16 +
-                                        t.MPoint[ch][pc + 4] << 24;
+                                        t.MPoint[ch][pc + 4] << 24);*/
+                                        t.MPointC[ch] += array2Int(t.MPoint[ch], pc+1);
+                                        /*LParam << 0 +
+                                        HParam << 8 +
+                                        t.MPoint[ch][pc + 3] << 16 +
+                                        t.MPoint[ch][pc + 4] << 24;*/
+                                        //console.log("new mpointc ",t.MPointC[ch]);
+                                    }
                                     JmpSafe++;
                                     if (JmpSafe > 1) {
+                                        console.log("Jumpsafe!");
                                         t.StopMML(ch);
                                         t.MCount[ch] = t.SeqTime + 1;
                                     }
