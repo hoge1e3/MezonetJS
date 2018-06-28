@@ -17,7 +17,7 @@ class Grammar {
             if (k==="$space") {
                 //this.space=this.toParser(v);
             } else {
-                this.defs[k]=this.toParser(v).ret((r)=>{
+                this.defs[k]=this.toParser(v===1? "'"+k : v).ret((r)=>{
                     if (r && typeof r==="object" && !r.type) r.type=k;
                     return r;
                 });

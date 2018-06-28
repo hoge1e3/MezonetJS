@@ -15,7 +15,8 @@ var reqConf={
 
             },
             test:1,
-            SEnv: 1
+            SEnv: 1,
+            M2Parser:1
         }
     }
 };
