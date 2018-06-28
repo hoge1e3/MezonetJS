@@ -518,22 +518,20 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             t.PorLen[c] = -1;
         },
-        /*
-        procedure TEnveloper.Play1Por (c,f,t:Word;iss:Boolean);
-        var TP:Integer;
-        {
-             if (c<0)  ||  (c>=Chs)  ||  (f<0)  ||  (f>95) ||
-                (f<0)  ||  (f>95) ) return;
-             Resting[c]=False;
+        //    procedure TEnveloper.Play1Por (c,f,t:Word;iss:Boolean);
+        Play1Por: function (t,c,from,to,iss) {
+             var TP=0//:Intege;
+             if ((c<0)  ||  (c>=Chs)  ||  (to<0)  ||  (to>95) ||
+                (from<0)  ||  (from>95) ) return;
+             t.Resting[c]=False;
 
              //TP=m2t[f];
-             PorStart[c]=m2tInt[f]+Detune[c]*m2tInt[f] div 2048;//Trunc (DivClock/TP*65536/t.sampleRate)+Detune[c];
-             //TP=m2t[t];
-             PorEnd[c]=m2tInt[t]+Detune[c]*m2tInt[t] div 2048;//Trunc (DivClock/TP*65536/t.sampleRate)+Detune[c];
+             t.PorStart[c]=m2tInt[from]+t.Detune[c]*div(m2tInt[from] , 2048);//Trunc (DivClock/TP*65536/t.sampleRate)+Detune[c];
+             //TP=m2t[to];
+             t.PorEnd[c]=m2tInt[to]+t.Detune[c]*div(m2tInt[to] , 2048);//Trunc (DivClock/TP*65536/t.sampleRate)+Detune[c];
+             if  (!iss) t.ECount[c]=0;
 
-             if ! (iss) ) ECount[c]=0;
-
-        end;
+        },/*
         {$ifdef ForM2}
         procedure TEnveloper.SetWOutMode (b:Boolean);
         {
@@ -634,6 +632,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 }
             }
         },
+        RegPCM: function (t,fn, n) {
+            console.log("[STUB]regpcm",fn.map(function (e) {return String.fromCharCode(e);}),n);
+        },
         /*
         procedure TEnveloper.RegPCM (fn:string;n:Integer);
         var i:Integer;
@@ -669,7 +670,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 WriteMax, //:integer;
                 nowt, //:longint;
                 // AllVCenter:Integer;
-                Wf, Wt, WMid, WRes, WSum, v, NoiseP, Tmporc, //:Integer;
+                Wf=0, Wt=0, WMid=0, WRes=0, WSum=0, v=0, NoiseP=0, Tmporc=0, //:Integer;
                 LParam, HParam, WParam, //:Byte;
                 JmpSafe, EnvFlag, //:Integer;
                 se; //:^TSoundElem;
@@ -716,6 +717,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }*/
             t.WriteAd = 0;
             WriteMax = BSize - 1;
+            var mcountK=t.sampleRate / 22050;
+            var tempoK=44100 / t.sampleRate ;
             //console.log(t.WriteAd, WriteMax);
             while (t.WriteAd != WriteMax) {
                 LfoInc = !LfoInc;
@@ -808,21 +811,22 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                             t.MCount[ch] = t.SeqTime +
                                 (LParam + HParam * 256) * 2;
                             // SPS=22050の場合 *2 を *1 に。
+                            // SPS=x の場合   * (x/22050)
                             t.MPointC[ch] += 3;
                         } else switch (code) {
-                            /*case MPor:{
-                                 Play1Por (ch,
+                            case MPor:{
+                                 t.Play1Por (ch,
                                    LParam,
                                    HParam,
-                                   Slur[ch]
+                                   t.Slur[ch]
                                  );
-                                 Slur[ch]=False;
-                                 MCount[ch]=SeqTime+
-                                 ( Byte((MPoint[ch]+3)^)+Byte((MPoint[ch]+4)^)*256 )*2;
+                                 t.Slur[ch]=False;
+                                 t.MCount[ch]=t.SeqTime+
+                                 ( t.MPoint[ch][pc + 3]+t.MPoint[ch][pc + 4]*256 )*2;
                                 // SPS=22050の場合 *2 を *1 に。
-                                 PorLen[ch]=MCount[ch]-SeqTime;
+                                 t.PorLen[ch]=t.MCount[ch]-t.SeqTime;
                                  t.MPointC[ch]+=5;
-                            }break;*/
+                            }break;
                             case MTempo:
                                 {
                                     t.Tempo = LParam + HParam * 256;
@@ -960,12 +964,11 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                     t.MPointC[ch] += 2;
                                 }
                                 break;
-                                /*case MPCMReg:{
-                        Wfilename=MPoint[ch]+1;
-                        inc (MPoint[ch],length(WFilename)+2);
-                        RegPCM (WFileName,Byte(MPoint[ch]^));
-                        inc (MPoint[ch]);
-                    }break;*/
+                            case MPCMReg:{
+                                var fn=StrPas(t.MPoint[ch], pc+1);
+                                t.RegPCM (fn,t.MPoint[ch][pc+1+fn.length+1]);
+                                t.MPointC[ch]+=fn.length +3;
+                            }break;
                             case Mend:
                                 t.StopMML(ch); //MPoint[ch]=nil;
                                 break;
@@ -977,8 +980,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     }
                     // End Of MMLProc
                 }
-                t.SeqTime += div(t.SeqTime120 + t.Tempo, 120) - div(t.SeqTime120, 120);
-                t.SeqTime120 += t.Tempo;
+                t.SeqTime += div(t.SeqTime120 + t.Tempo * tempoK, 120) - div(t.SeqTime120, 120);
+                t.SeqTime120 += Math.floor( t.Tempo * tempoK) ;
 
                 /*for ( ch=0 to Ses-1 ) {
                     if ( SeLen[ch]>0 ) {
