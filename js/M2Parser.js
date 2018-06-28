@@ -1,5 +1,87 @@
 define(["Grammar","Visitor"],function (Grammar,Visitor) {
-    var VDefault=65535;
+//--- Also in SEnv
+    var Ses = 10,
+        Chs = 10,
+        Regs = Chs * 3,
+        WvElC = 32,
+        WvC = 96,
+        wdataSize = 65536,
+        //   99=r 100=vol 101=ps (x*128)  255=end
+        MRest = 99,
+        MVol = 100,
+        Mps = 101,
+        MSelWav = 102,
+        MTempo = 103,
+        MJmp = 104,
+        MSlur = 105,
+        MPor = 106,
+        MSelEnv = 107,
+        MWait = 108,
+        MCom = 109,
+        MDet = 110,
+        MWOut = 111,
+        MWEnd = 112,
+        MWrtWav = 113,
+        MWrtEnv = 114,
+        MLfo = 115,
+        MSync = 116,
+        MPCMReg = 117,
+        MLfoD = 118,
+        MBaseVol = 119,
+
+        Mend = 255,
+
+        //sync=0:非同期、1:同期、2:ワンショット 3:鋸波形
+        LASync = 0,
+        LSync = 1,
+        LOneShot = 2,
+        LSaw = 3,
+
+        Envs = 16,
+        PCMWavs = 16, // 96-111
+        FadeMax = 256,
+
+        div = function(x, y) {
+            return Math.trunc(chkn(x,"x") / chkn(y,"y") );
+        },
+        chkn = function (x,mesg) {
+            if (x!==x) throw new Error(mesg+": Not a number!");
+            if (typeof x!=="number") {console.error(x);throw new Error(mesg+": Not a not a number but not a number!");}
+            return x;
+        },
+        abs = Math.abs.bind(Math),
+        ShortInt = function(b) {
+            return b >= 128 ? b - 256 : b;
+        },
+        StrPas=function (ary,idx) {
+            var a=[];
+            for (var i=idx;ary[i];i++) {
+                a.push(ary[i]);
+            }
+            return a;
+        },
+        array2Int= function (ary,idx) {
+            var r=ary[idx];
+            r+=ary[idx+1]*0x100;
+            r+=ary[idx+2]*0x10000;
+            r+=ary[idx+3]*0x1000000;
+            if (r>=0x80000000) r-=0x100000000;
+            return r;
+        },
+        Integer = Number,
+        sinMax_s = 5,
+        sinMax = 65536 >> sinMax_s, //2048,
+        //SPS = 44100,
+        SPS96 = 22050,
+        /*SPS_60 = div(44100, 60),*/
+        DivClock = 111860.78125,
+        Loops = 163840,
+//---------End include
+        VDefault=65535,
+        header=[100, 120, 101, 5, 110, 0, 102, 0, 107, 0, 115, 0, 0, 0, 118, 0, 116, 0],
+        trailer=[255, 255, 255],
+        Version=1200
+        ;
     var tokenizer=new Grammar({
         space:/^\s*/,
     });
@@ -13,7 +95,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         )),
         Grammar.P.StringParser.eof],
         "LWait": "''",
-        "SoundEl": /^[a-gA-G][\+\#\-]*/,
+        "SoundEl": /^[a-gA-GrR^][\+\#\-]*/,
         "Num": /^[0-9]+/,
         "Periods": /^\.+/,
         "StrOption":or("'@com","'@wavout"),
@@ -74,31 +156,69 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         relocts: rep0("reloct"),
         realsound: [tk("SoundEl"),"Length"],
         Length: ["DefaultNum",opt(tk("Periods"))],
-        "DefaultNum": opt(tk("Num"))/*.ret(function (r) {
-            if (r==null) return VDefault;
-            return r+""-0;
-        })*/
+        "DefaultNum": [opt(tk("Num"))]
     });
     var r=parser.get("mml").parseTokens(tokens);
     console.log("parser",r);
     (function (node) {
         var channels=[];
-        var curch;
+        var ChInfo;
         function selCh(ch) {
             console.log("Select ch #",ch);
-            var r=channels[ch];
-            if (r) return r;
-            r=channels[ch]={
+            ChInfo=channels[ch-1];
+            if (ChInfo) return ChInfo;
+            ChInfo=channels[ch-1]={
                 no:ch,
-                buf:[]
+                buf:header.concat([]),
+                Oct:4,
+                Len:4
             };
-            return r;
+            return ChInfo;
+        }
+        for(var i=0;i<10;i++) selCh(i+1);
+        function wrt(d) {
+            ChInfo.buf.push(d);
         }
         var v=Visitor({
             mml: function (node) {
                 node[0].forEach(function (n) {
                     v.visit(n);
                 });
+            },
+            DefaultNum: function (node) {
+                if (!node[0])return VDefault;
+                return node[0]+""-0;
+            },
+            Length: function (node) {
+                var num=v.visit(node[0]);
+                if (num===VDefault) num=ChInfo.Len;
+                var periods=(node[1]+"").length;
+                var a=div(SPS96,num);
+                a=a*2-div(a, (1<<periods));
+                return a;
+            },
+            realsound: function (node){
+                var SoundEl=node[0]+"";
+                var saval=SoundEl.toLowerCase();
+                switch(saval) {
+                case "r":
+                    wrt(MRest);
+                    break;
+                case "^":
+                    wrt(MSlur);
+                    wrt(ChInfo.PrevRealSnd);
+                    break;
+                default:
+                    ChInfo.PrevRealSnd=
+                    saval.charCodeAt(0)-
+                    "a".charCodeAt(0)+
+                    ChInfo.Oct*12-12;
+                    wrt(ChInfo.PrevRealSnd);
+                }
+                var li=v.visit(node[1]);
+                console.log("Len",li);
+                wrt(li & 255);
+                wrt(div(li , 256));
             },
             ChSel: function (node) {
                 var range=[];
@@ -133,5 +253,11 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
             console.log(node && node.type, node);
         };
         v.visit(node);
+        channels.forEach(function (channel) {
+            channel.buf=channel.buf.concat(trailer);
+        });
+        console.log("channels",channels);
+        var MPoint=channels.map(function (c) {return c.buf;});
+        console.log("MPoint",MPoint);
     })(r.result[0]);
 });
