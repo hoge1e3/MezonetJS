@@ -77,6 +77,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         DivClock = 111860.78125,
         Loops = 163840,
 //---------End include
+        AtoG = [9,11,0,2,4,5,7],
         VDefault=65535,
         header=[100, 120, 101, 5, 110, 0, 102, 0, 107, 0, 115, 0, 0, 0, 118, 0, 116, 0],
         trailer=[255, 255, 255],
@@ -92,7 +93,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         tokens: [rep0(or("-","&",";","[","]","(",")","{","}","z",",",
         "LWait","SoundEl","Num","Periods","@por","@pcm","StrOption",
         "SingleOption","LengthOption","OctShift","Value","String"
-        )),
+        )),/^\s*/,
         Grammar.P.StringParser.eof],
         "LWait": "''",
         "SoundEl": /^[a-gA-GrR^][\+\#\-]*/,
@@ -122,10 +123,6 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         "}":1,
         "z":1
     });
-    //     var r=tokenizer.get("tokens").parseStr("1[ @com\"hoge\" c2def fg<fedc ]");
-    var r=tokenizer.get("tokens").parseStr("1-3,5[ c2 def8 ]");
-    var tokens=r.result[0][0];
-    console.log("tokenr",tokens.map((e)=>e+""));
     var parser=new Grammar();
     var tk=Grammar.P.TokensParser.token;
     rep0=parser.rep0;
@@ -158,9 +155,27 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         Length: ["DefaultNum",opt(tk("Periods"))],
         "DefaultNum": [opt(tk("Num"))]
     });
-    var r=parser.get("mml").parseTokens(tokens);
-    console.log("parser",r);
-    (function (node) {
+    function int16toA(num,a) {
+        a=a||[];
+        if (num<0) num+=0x10000;
+        a.push(num & 255);
+        num=Math.floor(num/256);
+        a.push(num & 255);
+        return a;
+    }
+    function int32toA(num,a) {
+        a=a||[];
+        if (num<0) num+=0x100000000;
+        a.push(num & 255);
+        num=Math.floor(num/256);
+        a.push(num & 255);
+        num=Math.floor(num/256);
+        a.push(num & 255);
+        num=Math.floor(num/256);
+        a.push(num & 255);
+        return a;
+    }
+    function genCode(node) {
         var channels=[];
         var ChInfo;
         function selCh(ch) {
@@ -210,8 +225,8 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                     break;
                 default:
                     ChInfo.PrevRealSnd=
-                    saval.charCodeAt(0)-
-                    "a".charCodeAt(0)+
+                    AtoG[saval.charCodeAt(0)-
+                    "a".charCodeAt(0)]+
                     ChInfo.Oct*12-12;
                     wrt(ChInfo.PrevRealSnd);
                 }
@@ -259,5 +274,30 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         console.log("channels",channels);
         var MPoint=channels.map(function (c) {return c.buf;});
         console.log("MPoint",MPoint);
-    })(r.result[0]);
+        var mzo=[];
+        int32toA(Version, mzo);
+        mzo.push(channels.length);
+        channels.forEach(function (channel) {
+            int32toA(channel.buf.length,mzo);
+            mzo=mzo.concat(channel.buf);
+        });
+        console.log("mzo",mzo);
+        return mzo;
+    }
+    //     var r=tokenizer.get("tokens").parseStr("1[ @com\"hoge\" c2def fg<fedc ]");
+    function parseMML(mml) {
+        console.log("Input mml",mml);
+        var r=tokenizer.get("tokens").parseStr(mml);
+        if (!r.success) throw new Error("Syntax error(token) at "+r.src.maxPos);
+        var tokens=r.result[0][0];
+        console.log("tokenr",tokens.map((e)=>e+""));
+        var r=parser.get("mml").parseTokens(tokens);
+        console.log("parser",r);
+        return genCode(r.result[0]);
+
+    }
+    //parseMML("1-3,5[ c2 def8 ]");
+    return {
+        parseMML:parseMML
+    };
 });
