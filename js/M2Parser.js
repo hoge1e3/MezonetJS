@@ -72,7 +72,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         sinMax_s = 5,
         sinMax = 65536 >> sinMax_s, //2048,
         //SPS = 44100,
-        SPS96 = 22050,
+        SPS96 = 22050*2,
         /*SPS_60 = div(44100, 60),*/
         DivClock = 111860.78125,
         Loops = 163840,
@@ -96,7 +96,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         )),/^\s*/,
         Grammar.P.StringParser.eof],
         "LWait": "''",
-        "SoundEl": /^[a-gA-GrR^][\+\#\-]*/,
+        "SoundEl": /^[a-gA-GrR\^][\+\#\-]*/,
         "Num": /^[0-9]+/,
         "Periods": /^\.+/,
         "StrOption":or("'@com","'@wavout"),
@@ -186,7 +186,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 no:ch,
                 buf:header.concat([]),
                 Oct:4,
-                Len:4
+                Len:div(SPS96,4),
             };
             return ChInfo;
         }
@@ -200,37 +200,52 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                     v.visit(n);
                 });
             },
+            OctShift: function (node) {
+                if (node+""===">") ChInfo.Oct++;
+                if (node+""==="<") ChInfo.Oct--;
+            },
+            setlen: function (node) {
+                ChInfo.Len=v.visit(node[1]);
+                console.log("setlen",node,ChInfo.Len);
+            },
             DefaultNum: function (node) {
                 if (!node[0])return VDefault;
                 return node[0]+""-0;
             },
             Length: function (node) {
-                var num=v.visit(node[0]);
-                if (num===VDefault) num=ChInfo.Len;
-                var periods=(node[1]+"").length;
-                var a=div(SPS96,num);
+                var num=v.visit(node[0]),a;
+                if (num===VDefault) a=ChInfo.Len;
+                else a=div(SPS96,num);
+                var periods=node[1] ? (node[1]+"").length : 0;
                 a=a*2-div(a, (1<<periods));
+
                 return a;
             },
             realsound: function (node){
                 var SoundEl=node[0]+"";
                 var saval=SoundEl.toLowerCase();
-                switch(saval) {
-                case "r":
-                    wrt(MRest);
-                    break;
-                case "^":
-                    wrt(MSlur);
-                    wrt(ChInfo.PrevRealSnd);
-                    break;
-                default:
-                    ChInfo.PrevRealSnd=
-                    AtoG[saval.charCodeAt(0)-
-                    "a".charCodeAt(0)]+
-                    ChInfo.Oct*12-12;
-                    wrt(ChInfo.PrevRealSnd);
+                switch(saval[0]) {
+                    case "r":
+                        wrt(MRest);
+                        break;
+                    case "^":
+                        wrt(MSlur);
+                        wrt(ChInfo.PrevRealSnd);
+                        break;
+                    default:
+                        ChInfo.PrevRealSnd=
+                        AtoG[saval.charCodeAt(0)-
+                        "a".charCodeAt(0)]+
+                        ChInfo.Oct*12-12;
+                        for (var i=0;i<saval.length;i++) {
+                            switch (saval[i]) {
+                            case "+":case "#": ChInfo.PrevRealSnd++;break;
+                            case "-":ChInfo.PrevRealSnd--;break;
+                            }
+                        }
+                        wrt(ChInfo.PrevRealSnd);
                 }
-                var li=v.visit(node[1]);
+                var li=v.visit(node[1]) ;
                 console.log("Len",li);
                 wrt(li & 255);
                 wrt(div(li , 256));
