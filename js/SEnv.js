@@ -264,12 +264,10 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 return r;
             }
         },
-        getPlayPos: function(t) { //Integer;
-            //if (!t.WavPlaying) return 0;
-            return 0;
-            /*    mmt.wType=TIME_SAMPLES;
-                WaveOutGetPosition (hwo, @mmt, SizeOf(MMTIME));
-                result=mmt.Sample+ timeLag;*/
+        getPlayPos: function () {
+            var ti=this.context.currentTime- this. playStartTime;
+            var tiSamples=Math.floor(ti*this.sampleRate);
+            return tiSamples % wdataSize;
         },
         setSound: function(t, ch /*:Integer;*/ , typ /*:Integer;*/ , val /*:Integer*/ ) {
             t.soundMode[ch] = True;
@@ -346,9 +344,10 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
         },
 
-        $: function(t) {
+        $: function(t,options) {
             var i, j; //:Integer;
-
+            options=options||{};
+            t.useScriptProcessor=options.useScriptProcessor;
             t.initNode({});
             //t.WavPlaying=false;
             // inherited Create (Handle);
@@ -437,7 +436,51 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.Tempo = 120;
             t.ComStr = '';
         },
-        initNode: function (options) {
+        initNode: function (t,options) {
+            if (t.useScriptProcessor) return t.initNodeSCR(options);
+            var channel=1;
+            options=options||{};
+            for (var i in options) this[i]=options[i];
+            this.streamLength= this.streamLength || 4096;
+            if (typeof (webkitAudioContext) !== "undefined") {
+                this.context = new webkitAudioContext();
+            } else if (typeof (AudioContext) !== "undefined") {
+                this.context = new AudioContext();
+            }
+            this.sampleRate = this.context.sampleRate;
+            this.buf = this.context.createBuffer(channel, wdataSize, this.sampleRate);
+
+        },
+        playNode: function (t) {
+            if (t.useScriptProcessor) return t.playNodeSCR();
+            if (this.isSrcPlaying) return;
+            var source = this.context.createBufferSource();
+            // AudioBufferSourceNodeにバッファを設定する
+            source.buffer = this.buf;
+            // AudioBufferSourceNodeを出力先に接続すると音声が聞こえるようになる
+            if (typeof source.noteOn=="function") {
+                source.noteOn(0);
+                //source.connect(this.node);
+            }
+            source.connect(this.context.destination);
+            // 音源の再生を始める
+            source.start();
+            source.loop = true;
+            source.playStartTime = this.playStartTime = this.context.currentTime;
+            this.bufSrc=source;
+            this.isSrcPlaying = true;
+            this.timer=setInterval(function () {
+                t.RefreshPSG();
+            },100);
+        },
+        stopNode : function (t) {
+            if (t.useScriptProcessor) return t.stopNodeSCR();
+            if (!this.isSrcPlaying) return;
+            this.bufSrc.stop();
+            clearInterval(this.timer);
+            this.isSrcPlaying = false;
+        },
+        initNodeSCR: function (options) {
             var channel=1;
             options=options||{};
             for (var i in options) this[i]=options[i];
@@ -458,7 +501,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             this.isNodeConnected = false;
         },
-        playNode: function () {
+        playNodeSCR: function () {
             if (this.isNodeConnected) return;
             var registers=this.registers;
             this.time=0;
@@ -477,7 +520,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             this.node.connect(this.context.destination);
             this.isNodeConnected = true;
         },
-        stopNode : function () {
+        stopNodeSCR : function () {
             this.node.disconnect();
             this.isNodeConnected = false;
         },
@@ -716,11 +759,19 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             /*if ( cnt mod 4 ==0 ) {
 
             }*/
-            t.WriteAd = 0;
-            WriteMax = BSize - 1;
+            if (BSize) {
+                // SCR mode
+                t.WriteAd = 0;
+                WriteMax = BSize - 1;
+            } else {
+                BSize= wdataSize;
+                WriteMax = t.getPlayPos();
+            }
+
             var mcountK=t.sampleRate / 22050;
             var tempoK=44100 / t.sampleRate ;
-            //console.log(t.WriteAd, WriteMax);
+
+            console.log(t.WriteAd, WriteMax);
             while (t.WriteAd != WriteMax) {
                 LfoInc = !LfoInc;
                 WSum = 0; //128;   // 0 for 16bit

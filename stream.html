@@ -1,0 +1,55 @@
+<button id="b">Play</button>
+<pre></pre>
+<script>
+var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+var button = document.querySelector('button');
+var pre = document.querySelector('pre');
+var myScript = document.querySelector('script');
+
+pre.innerHTML = myScript.innerHTML;
+
+// ステレオ
+var channels = 1;
+// AudioContextのサンプルレートで2秒間の空のステレオバッファを生成する
+var frameCount = audioCtx.sampleRate * 2.0;
+
+var myArrayBuffer = audioCtx.createBuffer(channels, frameCount, audioCtx.sampleRate);
+function wrt(vol) {
+    for (var channel = 0; channel < channels; channel++) {
+     // 実際のデータの配列を得る
+     var nowBuffering = myArrayBuffer.getChannelData(channel);
+     for (var i = 0; i < frameCount; i++) {
+       // Math.random()は[0; 1.0]である
+       // 音声は[-1.0; 1.0]である必要がある
+       nowBuffering[i] = (Math.random() * 2 - 1)*vol;
+     }
+   }
+}
+var playStartTime;
+button.onclick = function() {
+  // バッファにホワイトノイズを書き込む;
+  // 単なる-1.0から1.0の間の乱数の値である
+  wrt(1);
+
+  // AudioBufferSourceNodeを得る
+  // これはAudioBufferを再生するときに使うAudioNodeである
+  var source = audioCtx.createBufferSource();
+  // AudioBufferSourceNodeにバッファを設定する
+  source.buffer = myArrayBuffer;
+  // AudioBufferSourceNodeを出力先に接続すると音声が聞こえるようになる
+  source.connect(audioCtx.destination);
+  // 音源の再生を始める
+  source.start();
+  source.loop = true;
+  source.playStartTime = playStartTime = audioCtx.currentTime;//@hoge1e3
+
+  //source.loopStart = loopStart;
+  //source.loopEnd = loopEnd;//audioBuffer.duration;
+  setInterval(function () { /*wrt(0);*/
+      var sec=audioCtx.currentTime- playStartTime;
+      console.log(sec);
+      wrt(1-sec/10);
+   },1000);
+
+};
+</script>

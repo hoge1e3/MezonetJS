@@ -5,7 +5,7 @@
 <script>
 requirejs.config(reqConf);
 requirejs(["M2Parser","SEnv"],function (P,SEnv) {
-    window.senv=new SEnv();
+    window.senv=new SEnv({useScriptProcessor:true});
     window.play=function () {
         var mzo=P.parseMML(document.querySelector("#mml").value);
         window.senv.load(mzo);
@@ -16,6 +16,6 @@ requirejs(["M2Parser","SEnv"],function (P,SEnv) {
 <H1>Enter MML Here</h1>
 
 <textarea id="mml" rows=20 cols=80>
-1-3,5[ c2 def8 ]
+1[ c2 def8 ]
 </textarea>
 <button onclick="play()">Play!</button>
