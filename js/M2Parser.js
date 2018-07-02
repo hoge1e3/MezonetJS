@@ -5,7 +5,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         Regs = Chs * 3,
         WvElC = 32,
         WvC = 96,
-        wdataSize = 65536,
+        wdataSize = 44100,
         //   99=r 100=vol 101=ps (x*128)  255=end
         MRest = 99,
         MVol = 100,
@@ -83,14 +83,16 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         trailer=[255, 255, 255],
         Version=1200
         ;
+    var space=(/^(\s*(\/\*\/?([^\/]|[^*]\/|\r|\n)*\*\/)*(((\/\/)|;).*\r?\n)*)*/);
+
     var tokenizer=new Grammar({
-        space:/^\s*/,
+        space:space,
     });
     var or=tokenizer.or;
     var rep0=tokenizer.rep0;
     //var singleTokens="[](){},_z";
     tokenizer.def({
-        tokens: [rep0(or("-","&",";","[","]","(",")","{","}","z",",",
+        tokens: [rep0(or("-","&",";","[","]","(",")","{","}","_","z",",",
         "LWait","SoundEl","Num","Periods","@por","@pcm","StrOption",
         "SingleOption","LengthOption","OctShift","Value","String"
         )),/^\s*/,
@@ -121,6 +123,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         ")":1,
         "{":1,
         "}":1,
+        "_":1,
         "z":1
     });
     var parser=new Grammar();
@@ -139,7 +142,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         "singleequ","stringequ","pcmreg",
         "tieslur","wait","reloct","setlen","toneshift","repts")),
         replace: tk("Value"),
-        singleequ: [tk("SingleOption"),sep1(tk(","),"DefaultNum")],
+        singleequ: [tk("SingleOption"),sep1("DefaultNum",tk(","))],
         renpu: [tk("{"),rep0("SoundEl","relocts"),tk("}")],
         portament: [tk("@por"),"SoundEl","relocts","SoundEl","Length"],
         stringequ: [tk("StrOption"),tk("String")],
@@ -187,22 +190,63 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 buf:header.concat([]),
                 Oct:4,
                 Len:div(SPS96,4),
+                Lbf:[],
+                Lbl:[],
+                VolShift:0
             };
+            return ChInfo;
+        }
+        function fillLabels() {
+            var i=0;
+            for (var i=0;i<Chs;i++) {
+                var ChInfo=channels[i];
+                ChInfo.Lbf.forEach(function (LbElem) {
+                    var ofs=ChInfo.Lbl[LbElem.LbNum]-LbElem.Pos;
+                    var repl=int32toA(ofs);
+                    var WmBuffer=ChInfo.buf;
+                    WmBuffer.splice.apply(WmBuffer,
+                        [LbElem.Pos+1,4].concat(repl));
+                });
+            }
+        }
+        function saveChInfo() {
+            var s={};
+            for (var k in ChInfo) {
+                s[k]=ChInfo[k];
+            }
+            return s;
+        }
+        function restoreChInfo(s) {
+            for (var k in s) {
+                ChInfo[k]=s[k];
+            }
             return ChInfo;
         }
         for(var i=0;i<10;i++) selCh(i+1);
         function wrt(d) {
             ChInfo.buf.push(d);
         }
+        function wrt16(d) {
+            int16toA(d,ChInfo.buf);
+        }
+        function wrt32(d) {
+            int32toA(d,ChInfo.buf);
+        }
+        function chkRange(val,min,max,mesg) {
+            if (val>=min && val<=max) return val;
+            throw new Error("Out of range for "+mesg+": "+val);
+        }
         var v=Visitor({
             mml: function (node) {
                 node[0].forEach(function (n) {
                     v.visit(n);
                 });
+                fillLabels();
             },
             OctShift: function (node) {
                 if (node+""===">") ChInfo.Oct++;
                 if (node+""==="<") ChInfo.Oct--;
+                chkRange(ChInfo.Oct,1,8,"o");
             },
             setlen: function (node) {
                 ChInfo.Len=v.visit(node[1]);
@@ -220,6 +264,51 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 a=a*2-div(a, (1<<periods));
 
                 return a;
+            },
+            singleequ: function (node) {
+                var sa=(node[0]+"").toLowerCase();
+                var b=v.visit(node[1][0]);
+                console.log("singleequ",sa,b);
+                if (b!=VDefault) {
+                    switch(sa) {
+                        case "o":
+                        ChInfo.Oct=chkRange(b,1,8,sa);
+                        break;
+                        case "t":
+                        wrt(MTempo);
+                        wrt16(chkRange(b,32,1023,sa));
+                        break;
+                        case "v":
+                        case "@v":
+                        if (sa==="v") b*=8;
+                        b+=ChInfo.VolShift;
+                        chkRange(b,0,127,sa);
+                        wrt(MVol);
+                        wrt(b);
+                        break;
+                        case "v=+":
+                        case "v=-":
+                        break;
+                        case "@":
+                        wrt(MSelWav);
+                        wrt(chkRange(b,0,95,sa));
+                        break;
+                        case "@label":
+                        ChInfo.Lbl[b]=ChInfo.buf.length;
+                        break;
+                        case "@jump":
+                        ChInfo.Lbf.push({
+                            LbNum:b,
+                            Pos:ChInfo.buf.length
+                        });
+                        wrt(MJmp);
+                        wrt32(5);
+                        break;
+                    }
+                } else {
+                    //endwav
+                    //lfo
+                }
             },
             realsound: function (node){
                 var SoundEl=node[0]+"";
@@ -265,6 +354,11 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 });
                 return range;
             },
+            Exs: function (node) {
+                node.forEach(function (n) {
+                    v.visit(n);
+                });
+            },
             Block: function (node) {
                 //;
                 var chsel=node[0];
@@ -273,14 +367,22 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 chs.forEach(function (ch,i) {
                     if (!ch) return;
                     selCh(i);
-                    node[2].forEach(function (n) {
-                        v.visit(n);
-                    });
+                    v.visit(node[2]);
                 });
             },
+            repts: function (node) {
+                var times=node[3]+""-0;
+                var expr=node[1];
+                console.log("repts",times,expr);
+                var sv=saveChInfo();
+                for (var i=0;i<times;i++) {
+                    restoreChInfo(sv);
+                    v.visit(expr);
+                }
+            }
         });
         v.def=function (node) {
-            console.log(node && node.type, node);
+            console.log("Undef node:",node && node.type, node);
         };
         v.visit(node);
         channels.forEach(function (channel) {
@@ -303,10 +405,15 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
     function parseMML(mml) {
         console.log("Input mml",mml);
         var r=tokenizer.get("tokens").parseStr(mml);
-        if (!r.success) throw new Error("Syntax error(token) at "+r.src.maxPos);
+        if (!r.success) throw new Error("Syntax error(token) at "+r.src.maxRow+":"+r.src.maxCol);
         var tokens=r.result[0][0];
         console.log("tokenr",tokens.map((e)=>e+""));
         var r=parser.get("mml").parseTokens(tokens);
+        if (!r.success) {
+            var maxt=tokens[r.src.maxPos];
+            console.log(maxt);
+            throw new Error("Syntax error at "+(maxt && maxt.row+":"+maxt.col));
+        }
         console.log("parser",r);
         return genCode(r.result[0]);
 

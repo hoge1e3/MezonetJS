@@ -75,6 +75,7 @@ requirejs(["SEnv"],function (SEnv) {
     dropZone.addEventListener('drop', handleFileSelect, false);
 
     window.senv=SEnv();
+    window.senv.loadWDT();
 
     var ctx=document.querySelector("#c").getContext("2d");
     /*setInterval(function () {
