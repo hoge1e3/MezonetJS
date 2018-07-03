@@ -14,9 +14,13 @@ var reqConf={
             mzo: {
 
             },
+            lib: {
+                FS:1
+            },
             test:1,
             SEnv: 1,
             M2Parser:1,
+            wavWriter:1,
             "Tones.wdt":1
         }
     }

@@ -121,7 +121,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             Pos: Integer,
             PrevPos: Integer,
             RPos: Integer,
-            WriteAd: Integer,
+            //WriteAd: Integer,
             SccCount: Array, // [0..Chs-1] of Integer;
             Steps: Array, // [0..Chs-1] of integer;
             SccWave: Array, // [0..Chs-1] of PChar;
@@ -385,7 +385,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             //t.WavPlaying=false;
             // inherited Create (Handle);
             t.Delay = 2000;
-            t.Pos = t.PrevPos = t.RPos = t.WriteAd = t.SeqTime =
+            t.Pos = t.PrevPos = t.RPos = /*t.WriteAd =*/ t.SeqTime =
             t.SeqTime120 = 0;
             t.BeginPlay=false;
             t.InitWave();
@@ -506,12 +506,18 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         },
         startRefreshLoop: function (t) {
             if (t.refreshTimer!=null) return;
-            t.WriteAd= (t.getPlayPos() + 500)% wdataSize;
-            console.log("t.WriteAd",t.WriteAd);
+            t.bufferState={
+                buffer: t.buf.getChannelData(0),
+                WriteAd: 0,//(t.getPlayPos() + 500)% wdataSize;
+                WriteMax: wdataSize-1
+            };
+            t.RefreshPSG(t.bufferState);
+            //console.log("t.WriteAd",t.WriteAd);
             function refresh() {
-                t.RefreshPSG(t.buf.getChannelData(0));
+                t.bufferState.buffer=t.buf.getChannelData(0);
+                t.bufferState.WriteMax=t.getPlayPos();
+                t.RefreshPSG(t.bufferState);
             }
-            refresh();
             t.refreshTimer=setInterval(refresh,100);
         },
         stopRefreshLoop: function (t) {
@@ -557,7 +563,11 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 var data = event.outputBuffer.getChannelData(0);
                 var len = data.length;
                 var i;
-                t.RefreshPSG(data);
+                t.RefreshPSG({
+                    buffer:data,
+                    WriteAd:0,
+                    WriteMax:len-1
+                });
                 /*for (i = 0; i < len; i++) {
                     data[i] = t.wdata2[i]/32768;
                 }*/
@@ -659,7 +669,16 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.WaitMML(c);
             t.PlayState[c] = psStop;
             t.MCount[c] = t.SeqTime + 1;
+            return t.allStopped();
             //WOutEnd;
+        },
+        allStopped: function (t) {
+            for(var i=0;i<Chs;i++) {
+                if (t.PlayState[i] != psStop) {
+                    return false;
+                }
+            }
+            return true;
         },
         //procedure TEnveloper.RestartMML (c:Integer);
         RestartMML: function(t, c) {
@@ -690,6 +709,12 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         //procedure TEnveloper.Start;
         Start: function(t) {
             t.Stop();
+            t.Rewind();
+            t.BeginPlay = True;
+            t.playNode();
+            t.startRefreshLoop();
+        },
+        Rewind: function (t) {
             var ch; //:Integer;
             //if (t.WavPlaying) return;
             // inherited Start;
@@ -703,15 +728,42 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 t.PlayState[ch] = psPlay;
                 t.MCount[ch] = t.SeqTime;
             }
-            t.LastWriteEndPos = 0;
-            t.BeginPlay = True;
-            t.playNode();
-            t.startRefreshLoop();
+            //t.LastWriteEndPos = 0;
         },
         Stop: function (t) {
             if (!t.BeginPlay) return;
             t.stopNode();
             t.stopRefreshLoop();
+        },
+        wavOut: function (t) {
+            t.Stop();
+            t.Rewind();
+            var buf=[];
+            for (i=0;i<4096;i++) buf.push(0);
+            var allbuf=[];
+            t.WavOutMode=true;
+            return new Promise(function (succ) {
+                setTimeout(refresh,1);
+                function refresh() {
+                    var b={
+                        buffer:buf,
+                        WriteAd:0,
+                        WriteMax:buf.length-1
+                    };
+                    //                   wa
+                    //                   wm
+                    // ..................S
+                    t.RefreshPSG(b);
+                    console.log("writeAd",b.WriteAd);
+                    allbuf=allbuf.concat(buf.slice(0,b.WriteAd));
+                    if (!t.allStopped()) {
+                        setTimeout(refresh,1);
+                    } else {
+                        t.WavOutMode=false;
+                        succ(allbuf);
+                    }
+                }
+            });
         },
         //procedure TEnveloper.SelWav (ch,n:Integer);
         SelWav: function(t, ch, n) {
@@ -755,8 +807,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         }
         */
         //procedure TEnveloper.RefreshPSG;
-        RefreshPSG: function(t,data) {
+        RefreshPSG: function(t,bufferState) {
             var i, ch, WaveMod, WriteBytes, wdtmp, inext, mid, w1, w2, APos, //:integer;
+                data=bufferState.buffer,
                 BSize=data.length,
                 TP = [],
                 vCenter = [], //:array [0..Chs-1] of Integer;
@@ -812,25 +865,26 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             /*if ( cnt mod 4 ==0 ) {
 
             }*/
-            if (t.useScriptProcessor) {
+            /*if (t.useScriptProcessor) {
                 // SCR mode
                 t.WriteAd = 0;
                 WriteMax = BSize - 1;
             } else {
                 WriteMax = t.getPlayPos();
-            }
+            }*/
+            WriteMax=bufferState.WriteMax;
 
             var mcountK=t.sampleRate / 22050;
             var tempoK=44100 / t.sampleRate ;
-
-            //console.log(t.WriteAd, WriteMax);
-            while (t.WriteAd != WriteMax) {
+            var alstp=false;
+            //console.log(bufferState.WriteAd, WriteMax);
+            while (bufferState.WriteAd != WriteMax) {
                 LfoInc = !LfoInc;
                 WSum = 0; //128;   // 0 for 16bit
                 EnvFlag++;
                 if (EnvFlag > 1) EnvFlag = 0;
                 for (ch = 0; ch < Chs; ch++) {
-                    if (t.MPoint[ch][t.MPointC[ch]] == nil) t.StopMML(ch);
+                    if (t.MPoint[ch][t.MPointC[ch]] == nil) alstp=t.StopMML(ch);
                     if ((!t.soundMode[ch]) && (t.PlayState[ch] != psPlay)) continue;
                     //----
                     /*while (nextPeekElemIdx[ch] != nextPokeElemIdx[ch]) {
@@ -1005,7 +1059,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                     JmpSafe++;
                                     if (JmpSafe > 1) {
                                         console.log("Jumpsafe!");
-                                        t.StopMML(ch);
+                                        alstp=t.StopMML(ch);
                                         t.MCount[ch] = t.SeqTime + 1;
                                     }
                                 }
@@ -1074,11 +1128,11 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                 t.MPointC[ch]+=fn.length +3;
                             }break;
                             case Mend:
-                                t.StopMML(ch); //MPoint[ch]=nil;
+                                alstp=t.StopMML(ch); //MPoint[ch]=nil;
                                 break;
                             default:
                                 throw new Error("Invalid opcode" + code); //ShowMessage ('???'+IntToSTr(Byte(MPoint[ch]^)));
-                                t.StopMML(ch);
+                                alstp=t.StopMML(ch);
                                 t.MPointC[ch] += 1;
                         }
                     }
@@ -1106,15 +1160,16 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 if (WSum > 32767) WSum = 32767; //16bit
                 if (WSum < -32768) WSum = -32768; //16bit
 
-                data[t.WriteAd] = WSum/32768;
-                //t.wdata2[t.WriteAd] = WSum;
+                data[bufferState.WriteAd] = WSum/32768;
+                //t.wdata2[bufferState.WriteAd] = WSum;
                 //PrevWSum=WSum;
 
                 NoiseP++;
                 t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
-                t.WriteAd++;
-                t.WriteAd = t.WriteAd % BSize;
+                bufferState.WriteAd++;
+                bufferState.WriteAd = bufferState.WriteAd % BSize;
                 APos++;
+                if (alstp) break;
             }
             t.SeqTime120 = t.SeqTime120 % 120;
             //WTime=GetTickCount-WTime;
