@@ -514,6 +514,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.RefreshPSG(t.bufferState);
             //console.log("t.WriteAd",t.WriteAd);
             function refresh() {
+                if (!t.isSrcPlaying) return;
                 t.bufferState.buffer=t.buf.getChannelData(0);
                 t.bufferState.WriteMax=t.getPlayPos();
                 t.RefreshPSG(t.bufferState);
@@ -711,8 +712,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.Stop();
             t.Rewind();
             t.BeginPlay = True;
-            t.playNode();
             t.startRefreshLoop();
+            t.playNode();
         },
         Rewind: function (t) {
             var ch; //:Integer;
