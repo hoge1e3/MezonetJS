@@ -28,6 +28,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         MPCMReg = 117,
         MLfoD = 118,
         MBaseVol = 119,
+        MLabel = 120,
 
         Mend = 255,
 
@@ -295,6 +296,8 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                         break;
                         case "@label":
                         ChInfo.Lbl[b]=ChInfo.buf.length;
+                        wrt(MLabel);
+                        wrt(b);
                         break;
                         case "@jump":
                         ChInfo.Lbf.push({

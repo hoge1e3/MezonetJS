@@ -29,6 +29,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         MPCMReg = 117,
         MLfoD = 118,
         MBaseVol = 119,
+        MLabel = 120,
 
         Mend = 255,
 
@@ -509,7 +510,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.bufferState={
                 buffer: t.buf.getChannelData(0),
                 WriteAd: 0,//(t.getPlayPos() + 500)% wdataSize;
-                WriteMax: wdataSize-1
+                WriteMax: wdataSize-1,
+                writtenSamples: 0
             };
             t.RefreshPSG(t.bufferState);
             //console.log("t.WriteAd",t.WriteAd);
@@ -743,14 +745,15 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             for (i=0;i<4096;i++) buf.push(0);
             var allbuf=[];
             t.WavOutMode=true;
+            var b={
+                buffer:buf,
+                writtenSamples: 0
+            };
             return new Promise(function (succ) {
                 setTimeout(refresh,1);
                 function refresh() {
-                    var b={
-                        buffer:buf,
-                        WriteAd:0,
-                        WriteMax:buf.length-1
-                    };
+                    b.WriteAd=0;
+                    b.WriteMax=buf.length-1;
                     //                   wa
                     //                   wm
                     // ..................S
@@ -1065,6 +1068,10 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                     }
                                 }
                                 break;
+                            case MLabel:
+                                if (t.WavOutMode && ch==0) console.log("@label", LParam , bufferState.writtenSamples+"/"+t.sampleRate );
+                                t.MPointC[ch]+=2;
+                                break;
                             case MSlur:
                                 {
                                     t.Slur[ch] = True;
@@ -1164,7 +1171,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 data[bufferState.WriteAd] = WSum/32768;
                 //t.wdata2[bufferState.WriteAd] = WSum;
                 //PrevWSum=WSum;
-
+                bufferState.writtenSamples++;
                 NoiseP++;
                 t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
                 bufferState.WriteAd++;
