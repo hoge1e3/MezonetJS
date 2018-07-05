@@ -1,0 +1,386 @@
+        RefreshPSG: function(t,bufferState) {
+            var i, ch, WaveMod, WriteBytes, wdtmp, inext, mid, w1, w2, APos, //:integer;
+                data=bufferState.buffer,
+                BSize=data.length,
+                TP = [],
+                vCenter = [], //:array [0..Chs-1] of Integer;
+                //Steps:array [0..Chs-1] of Integer;
+                Lambda, NewLambda, //:Real;
+                res, //:MMRESULT;
+                WriteTwice, LfoInc, //:Boolean;
+                WriteMax, //:integer;
+                nowt, //:longint;
+                // AllVCenter:Integer;
+                Wf=0, Wt=0, WMid=0, WRes=0, WSum=0, v=0, NoiseP=0, Tmporc=0, //:Integer;
+                LParam, HParam, WParam, //:Byte;
+                JmpSafe, EnvFlag, //:Integer;
+                se; //:^TSoundElem;
+            //if (!(t.WavPlaying)) return;
+            //if ( t.BSize>wdataSize ) t.BSize=wdataSize;
+            //mmt.wType=TIME_SAMPLES;
+            //WaveOutGetPosition (hwo, @mmt, SizeOf(MMTIME));
+            /*APos=mmt.Sample;
+     Pos=mmt.Sample mod Bsize;
+     if ( calibrationLen>0 ) {
+        calibration;
+        return;
+    }*/
+            APos = 0;
+            t.Pos = 0;
+            t.RPos = t.Pos;
+
+            /*if ( t.BeginPlay ) {
+        // WriteAd=(Pos+BSize-1) mod BSize;
+        LastWriteStartPos  = mmt.Sample+WriteMaxLen-2;
+        LastWriteEndPos    = mmt.Sample+WriteMaxLen-1;
+        BeginPlay=False;
+     } else {
+        //WriteAd=PrevPos;
+        LastWriteStartPos  = LastWriteEndPos;
+        LastWriteEndPos    = (mmt.Sample+BSize-1);
+     }
+     if ( (LastWriteEndPos-mmt.Sample>WriteMaxLen) ) {
+         LastWriteEndPos=mmt.Sample+WriteMaxLen;
+     }
+     WriteAd  = LastWriteStartPos % BSize;
+     WriteMax = LastWriteEndPos   % BSize;
+     if ( WriteAd<0 ) WriteAd=0;
+     if ( WriteMax<0 ) WriteMax=0;
+*/
+
+            //for ( ch=0 to Chs-1 ) inc (AllVCenter,vCenter[ch]);
+            //WTime=GetTickCount;
+            EnvFlag = 0;
+            LfoInc = True;
+            cnt++; //inc(cnt);
+            /*if ( cnt mod 4 ==0 ) {
+
+            }*/
+            /*if (t.useScriptProcessor) {
+                // SCR mode
+                t.WriteAd = 0;
+                WriteMax = BSize - 1;
+            } else {
+                WriteMax = t.getPlayPos();
+            }*/
+            WriteMax=bufferState.WriteMax;
+
+            var mcountK=t.sampleRate / 22050;
+            var tempoK=44100 / t.sampleRate ;
+            var alstp=false;
+            var startTime=new Date().getTime();
+            var startSamples=bufferState.writtenSamples;
+            //console.log(bufferState.WriteAd, WriteMax);
+            var __dami,WaveDat=t.WaveDat ,EnvDat=t.EnvDat ,L2WL=t.L2WL ,Sync=t.Sync ,ECount=t.ECount ,MCount=t.MCount ,Steps=t.Steps ,SccWave=t.SccWave ,SccCount=t.SccCount ,EShape=t.EShape ,EVol=t.EVol ,EBaseVol=t.EBaseVol ,MPoint=t.MPoint ,MPointC=t.MPointC ,ESpeed=t.ESpeed ,PlayState=t.PlayState ,Detune=t.Detune ,LfoV=t.LfoV ,LfoD=t.LfoD ,LfoDC=t.LfoDC ,PorStart=t.PorStart ,PorEnd=t.PorEnd ,PorLen=t.PorLen ,soundMode=t.soundMode ,CurWav=t.CurWav ,Oct=t.Oct ,Resting=t.Resting ,Slur=t.Slur ,LfoA=t.LfoA ,LfoC=t.LfoC ,LfoSync=t.LfoSync ;
+
+            while (bufferState.WriteAd != WriteMax) {
+                LfoInc = !LfoInc;
+                WSum = 0; //128;   // 0 for 16bit
+                EnvFlag++;
+                if (EnvFlag > 1) EnvFlag = 0;
+                for (ch = 0; ch < Chs; ch++) {
+                    if (MPoint[ch][MPointC[ch]] == nil) alstp=t.StopMML(ch);
+                    if ((!soundMode[ch]) && (PlayState[ch] != psPlay)) continue;
+                    //----
+                    /*while (nextPeekElemIdx[ch] != nextPokeElemIdx[ch]) {
+                        se = sndElems[ch][nextPeekElemIdx[ch]];
+                        if (APos >= se.time) {
+                            t.setSound(ch, se.typ, se.val);
+                            t.nextPeekElemIdx[ch] = (t.nextPeekElemIdx[ch] + 1) % sndElemCount;
+                        } else break;
+                    }*/
+
+                    //---
+                    if ((soundMode[ch]))
+                        v = EVol[ch];
+                    else if ((Resting[ch]))
+                        v = 0;
+                    else
+                        v = EShape[ch][ECount[ch] >>> 11] * EVol[ch] * EBaseVol[ch]; // 16bit
+                    if (t.Fading < FadeMax) {
+                        v = v * div(t.Fading, FadeMax); // 16bit
+                    }
+                    if (v > 0) {
+                        i = chkn(SccCount[ch] >>> (32 - L2WL[ch]));
+                        //inext=(i+1) & ((1 << L2WL[ch])-1);
+
+                        //mid=(SccCount[ch] >> (24-L2WL[ch])) & 255;
+
+                        // *****000 00000000 00000000 00000000
+                        //                      ***** 00000000
+
+                        w1 = chkn(SccWave[ch][i]);
+                        chkn(v);
+                        //w2=Byte((SccWave[ch]+inext)^) ;
+
+                        WSum += (
+                            div((w1 * v), (16 * 128))
+                        ) - div(v, 16);
+
+                        if (!Sync[ch]) {
+                            (SccCount[ch] += Steps[ch]);
+                        } else {
+                            if ((SccCount[ch] < -Steps[ch] * 2) || (SccCount[ch] >= 0))(SccCount[ch] += Steps[ch]);
+                        }
+                        if ((LfoV[ch] != 0)) {
+                            if ((LfoDC[ch] > 0)) {
+                                (LfoDC[ch] -= t.Tempo);
+                            } else {
+                                (SccCount[ch] +=
+                                    sinT[LfoC[ch] >>> (16 + sinMax_s)] *
+                                    div(Steps[ch], 512) *
+                                    div(LfoA[ch], 256)
+                                );
+                                if (LfoInc) LfoC[ch] += LfoV[ch];
+                            }
+
+                        }
+                    }
+                    if (ECount[ch] + ESpeed[ch] < 65536 && (EnvFlag == 0)) ECount[ch] += ESpeed[ch];
+                    //####MMLProc (ch);
+                    JmpSafe = 0;
+                    //dec (MCount[ch]);
+                    if (PorLen[ch] > 0) {
+                        Tmporc = MCount[ch] - t.SeqTime;
+                        Steps[ch] = (
+                            div(PorStart[ch], PorLen[ch]) * Tmporc +
+                            div(PorEnd[ch], PorLen[ch] * (PorLen[ch] - Tmporc))
+                        );
+                    }
+                    //if (ch==0) console.log("ch",ch,"Code",MCount[ch],t.SeqTime);
+
+                    while (MCount[ch] <= t.SeqTime) {
+                        //MCount[ch]=0;
+                        var pc = MPointC[ch];
+                        LParam = MPoint[ch][pc + 1];
+                        HParam = MPoint[ch][pc + 2];
+                        var code = MPoint[ch][pc];
+                        //console.log("ch",ch,"Code",code)
+                        if (code >= 0 && code < 96 || code === MRest) {
+                            t.Play1Sound(ch, code, Slur[ch]);
+                            if (!Slur[ch]) LfoDC[ch] = LfoD[ch];
+                            Slur[ch] = False;
+                            //MCount[ch]=SPS div LParam;
+                            MCount[ch] = t.SeqTime +
+                                (LParam + HParam * 256) * 2;
+                            // SPS=22050の場合 *2 を *1 に。
+                            // SPS=x の場合   * (x/22050)
+                            MPointC[ch] += 3;
+                        } else switch (code) {
+                            case MPor:{
+                                 t.Play1Por (ch,
+                                   LParam,
+                                   HParam,
+                                   Slur[ch]
+                                 );
+                                 Slur[ch]=False;
+                                 MCount[ch]=t.SeqTime+
+                                 ( MPoint[ch][pc + 3]+MPoint[ch][pc + 4]*256 )*2;
+                                // SPS=22050の場合 *2 を *1 に。
+                                 PorLen[ch]=MCount[ch]-t.SeqTime;
+                                 MPointC[ch]+=5;
+                            }break;
+                            case MTempo:
+                                {
+                                    t.Tempo = LParam + HParam * 256;
+                                    MPointC[ch] += 3;
+                                }
+                                break;
+                            case MVol:
+                                {
+                                    EVol[ch] = LParam;
+                                    MPointC[ch] += 2;
+                                }
+                                break;
+                            case MBaseVol:
+                                {
+                                    EBaseVol[ch] = LParam;
+                                    MPointC[ch] += 2;
+                                }
+                                break;
+                            case Mps:
+                                {
+                                    ESpeed[ch] = LParam;
+                                    MPointC[ch] += 2;
+                                }
+                                break;
+                            case MSelWav:
+                                {
+                                    //SccWave[ch]=@WaveDat[LParam,0];
+                                    t.SelWav(ch, LParam);
+                                    MPointC[ch] += 2;
+                                }
+                                break;
+                            case MWrtWav:
+                                {
+                                    MPointC[ch] += 34; // MWrtWav wavno data*32
+                                    for (i = 0; i < 32; i++) {
+                                        WaveDat[LParam][i] = MPoint[ch][pc + 2 + i];
+                                    }
+                                }
+                                break;
+                            case MSelEnv:
+                                {
+                                    EShape[ch] = EnvDat[LParam];
+                                    MPointC[ch] += 2;
+                                }
+                                break;
+                            case MWrtEnv:
+                                { // MWrtEnv envno data*32
+                                    MPointC[ch] += 34;
+                                    for (i = 0; i < 32; i++) {
+                                        wdtmp = MPoint[ch][pc + 2 + i];
+                                        if (wdtmp > 15) wdtmp = 15;
+                                        EnvDat[LParam][i] = wdtmp;
+                                    }
+                                }
+                                break;
+                            case MJmp:
+                                {
+                                    if (t.WavOutMode) {
+                                        MPointC[ch] += 5;
+                                    } else {
+                                        /*console.log("old mpointc ",MPointC[ch],LParam,HParam,MPoint[ch][pc + 3],MPoint[ch][pc + 4],LParam << 0 +
+                                        HParam << 8 +
+                                        MPoint[ch][pc + 3] << 16 +
+                                        MPoint[ch][pc + 4] << 24);*/
+                                        MPointC[ch] += array2Int(MPoint[ch], pc+1);
+                                        /*LParam << 0 +
+                                        HParam << 8 +
+                                        MPoint[ch][pc + 3] << 16 +
+                                        MPoint[ch][pc + 4] << 24;*/
+                                        //console.log("new mpointc ",MPointC[ch]);
+                                    }
+                                    JmpSafe++;
+                                    if (JmpSafe > 1) {
+                                        console.log("Jumpsafe!");
+                                        alstp=t.StopMML(ch);
+                                        MCount[ch] = t.SeqTime + 1;
+                                    }
+                                }
+                                break;
+                            case MLabel:
+                                if (t.WavOutMode && ch==0) console.log("@label", LParam , bufferState.writtenSamples+"/"+t.sampleRate );
+                                MPointC[ch]+=2;
+                                break;
+                            case MSlur:
+                                {
+                                    Slur[ch] = True;
+                                    MPointC[ch] += 1;
+                                }
+                                break;
+                            case MWait:
+                                {
+                                    t.WaitMML(ch);
+                                    MPointC[ch] += 1;
+                                }
+                                break;
+                            case MCom:
+                                {
+                                    t.ComStr = StrPas(MPoint[ch], pc + 1);
+                                    MPointC[ch] += t.ComStr.length + 2; // opcode str \0
+                                    //inc (MPoint[ch],length(comstr)+2);
+                                }
+                                break;
+                            case MWOut:
+                                {
+                                    t.WFilename = StrPas(MPoint[ch], pc + 1);
+                                    MPointC[ch] += t.WFilename.length + 2; // opcode str \0
+                                    //inc (MPoint[ch],length(WFilename)+2);
+                                }
+                                break;
+                            case MWEnd:
+                                {
+                                    MPointC[ch] += 1;
+                                }
+                                break;
+                            case MDet:
+                                {
+                                    Detune[ch] = ShortInt(LParam);
+                                    MPointC[ch] += 2;
+                                }
+                                break;
+                            case MLfo:
+                                {
+                                    LfoSync[ch] = (LParam);
+                                    LfoV[ch] = (HParam) * 65536;
+                                    LfoA[ch] = (MPoint[ch][pc + 3]);
+                                    LfoD[ch] = 0;
+                                    MPointC[ch] += 4;
+                                }
+                                break;
+                            case MLfoD:
+                                {
+                                    LfoD[ch] = LParam * t.sampleRate;
+                                    MPointC[ch] += 2;
+                                }
+                                break;
+                            case MSync:
+                                {
+                                    Sync[ch] = (LParam == 1);
+                                    MPointC[ch] += 2;
+                                }
+                                break;
+                            case MPCMReg:{
+                                var fn=StrPas(MPoint[ch], pc+1);
+                                t.RegPCM (fn,MPoint[ch][pc+1+fn.length+1]);
+                                MPointC[ch]+=fn.length +3;
+                            }break;
+                            case Mend:
+                                alstp=t.StopMML(ch); //MPoint[ch]=nil;
+                                break;
+                            default:
+                                throw new Error("Invalid opcode" + code); //ShowMessage ('???'+IntToSTr(Byte(MPoint[ch]^)));
+                                alstp=t.StopMML(ch);
+                                MPointC[ch] += 1;
+                        }
+                    }
+                    // End Of MMLProc
+                }
+                t.SeqTime += div(t.SeqTime120 + t.Tempo * tempoK, 120) - div(t.SeqTime120, 120);
+                t.SeqTime120 += Math.floor( t.Tempo * tempoK) ;
+
+                /*for ( ch=0 to Ses-1 ) {
+                    if ( SeLen[ch]>0 ) {
+                       //inc (WSum,(Byte(Sept[ch]^)-128)*SeVol[ch] div 128);    //16bit
+                       inc (WSum,(Byte(Sept[ch]^)-128)*SeVol[ch]);    //16bit
+                       dec (SeLen[ch]);
+                       if ( (SeLen[ch]<=0) && (SeReptLen[ch]>0) ) {
+                             SeLen[ch]=SeReptLen[ch];
+                             dec (SePt[ch],SeLen[ch]);
+                       }
+                       inc (Sept[ch]);
+
+                    }
+                }*/
+
+                //if ( WSum>255 ) WSum=255;     //16bit
+                //if ( WSum<0 ) WSum=0;         //16bit
+                if (WSum > 32767) WSum = 32767; //16bit
+                if (WSum < -32768) WSum = -32768; //16bit
+
+                data[bufferState.WriteAd] = WSum/32768;
+                //t.wdata2[bufferState.WriteAd] = WSum;
+                //PrevWSum=WSum;
+                bufferState.writtenSamples++;
+                NoiseP++;
+                WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
+                bufferState.WriteAd++;
+                bufferState.WriteAd = bufferState.WriteAd % BSize;
+                APos++;
+                if (alstp) break;
+            }
+            t.performance.elapsedTime+=new Date().getTime()-startTime;
+            t.performance.writtenSamples+=bufferState.writtenSamples-startSamples;
+            t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
+            t.SeqTime120 = t.SeqTime120 % 120;
+            //WTime=GetTickCount-WTime;
+            t.PrevPos = t.Pos;
+
+            //BufferUnderRun= getPlayPos - LastWriteStartPos;
+
+            //--------------|---------------------------
+            //             playpos  LS            LE
+            //                       +-------------+
+
+        }//of refreshPSG
