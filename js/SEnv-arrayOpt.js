@@ -885,14 +885,16 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             var startTime=new Date().getTime();
             var startSamples=bufferState.writtenSamples;
             //console.log(bufferState.WriteAd, WriteMax);
+            var __dami,WaveDat=t.WaveDat ,EnvDat=t.EnvDat ,L2WL=t.L2WL ,Sync=t.Sync ,ECount=t.ECount ,MCount=t.MCount ,Steps=t.Steps ,SccWave=t.SccWave ,SccCount=t.SccCount ,EShape=t.EShape ,EVol=t.EVol ,EBaseVol=t.EBaseVol ,MPoint=t.MPoint ,MPointC=t.MPointC ,ESpeed=t.ESpeed ,PlayState=t.PlayState ,Detune=t.Detune ,LfoV=t.LfoV ,LfoD=t.LfoD ,LfoDC=t.LfoDC ,PorStart=t.PorStart ,PorEnd=t.PorEnd ,PorLen=t.PorLen ,soundMode=t.soundMode ,CurWav=t.CurWav ,Oct=t.Oct ,Resting=t.Resting ,Slur=t.Slur ,LfoA=t.LfoA ,LfoC=t.LfoC ,LfoSync=t.LfoSync ;
+
             while (bufferState.WriteAd != WriteMax) {
                 LfoInc = !LfoInc;
                 WSum = 0; //128;   // 0 for 16bit
                 EnvFlag++;
                 if (EnvFlag > 1) EnvFlag = 0;
                 for (ch = 0; ch < Chs; ch++) {
-                    if (t.MPoint[ch][t.MPointC[ch]] == nil) alstp=t.StopMML(ch);
-                    if ((!t.soundMode[ch]) && (t.PlayState[ch] != psPlay)) continue;
+                    if (MPoint[ch][MPointC[ch]] == nil) alstp=t.StopMML(ch);
+                    if ((!soundMode[ch]) && (PlayState[ch] != psPlay)) continue;
                     //----
                     /*while (nextPeekElemIdx[ch] != nextPokeElemIdx[ch]) {
                         se = sndElems[ch][nextPeekElemIdx[ch]];
@@ -903,17 +905,17 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     }*/
 
                     //---
-                    if ((t.soundMode[ch]))
-                        v = t.EVol[ch];
-                    else if ((t.Resting[ch]))
+                    if ((soundMode[ch]))
+                        v = EVol[ch];
+                    else if ((Resting[ch]))
                         v = 0;
                     else
-                        v = t.EShape[ch][t.ECount[ch] >>> 11] * t.EVol[ch] * t.EBaseVol[ch]; // 16bit
+                        v = EShape[ch][ECount[ch] >>> 11] * EVol[ch] * EBaseVol[ch]; // 16bit
                     if (t.Fading < FadeMax) {
                         v = v * div(t.Fading, FadeMax); // 16bit
                     }
                     if (v > 0) {
-                        i = chkn(t.SccCount[ch] >>> (32 - t.L2WL[ch]));
+                        i = chkn(SccCount[ch] >>> (32 - L2WL[ch]));
                         //inext=(i+1) & ((1 << L2WL[ch])-1);
 
                         //mid=(SccCount[ch] >> (24-L2WL[ch])) & 255;
@@ -921,7 +923,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         // *****000 00000000 00000000 00000000
                         //                      ***** 00000000
 
-                        w1 = chkn(t.SccWave[ch][i]);
+                        w1 = chkn(SccWave[ch][i]);
                         chkn(v);
                         //w2=Byte((SccWave[ch]+inext)^) ;
 
@@ -929,214 +931,214 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                             div((w1 * v), (16 * 128))
                         ) - div(v, 16);
 
-                        if (!t.Sync[ch]) {
-                            (t.SccCount[ch] += t.Steps[ch]);
+                        if (!Sync[ch]) {
+                            (SccCount[ch] += Steps[ch]);
                         } else {
-                            if ((t.SccCount[ch] < -t.Steps[ch] * 2) || (t.SccCount[ch] >= 0))(t.SccCount[ch] += t.Steps[ch]);
+                            if ((SccCount[ch] < -Steps[ch] * 2) || (SccCount[ch] >= 0))(SccCount[ch] += Steps[ch]);
                         }
-                        if ((t.LfoV[ch] != 0)) {
-                            if ((t.LfoDC[ch] > 0)) {
-                                (t.LfoDC[ch] -= t.Tempo);
+                        if ((LfoV[ch] != 0)) {
+                            if ((LfoDC[ch] > 0)) {
+                                (LfoDC[ch] -= t.Tempo);
                             } else {
-                                (t.SccCount[ch] +=
-                                    sinT[t.LfoC[ch] >>> (16 + sinMax_s)] *
-                                    div(t.Steps[ch], 512) *
-                                    div(t.LfoA[ch], 256)
+                                (SccCount[ch] +=
+                                    sinT[LfoC[ch] >>> (16 + sinMax_s)] *
+                                    div(Steps[ch], 512) *
+                                    div(LfoA[ch], 256)
                                 );
-                                if (LfoInc) t.LfoC[ch] += t.LfoV[ch];
+                                if (LfoInc) LfoC[ch] += LfoV[ch];
                             }
 
                         }
                     }
-                    if (t.ECount[ch] + t.ESpeed[ch] < 65536 && (EnvFlag == 0)) t.ECount[ch] += t.ESpeed[ch];
+                    if (ECount[ch] + ESpeed[ch] < 65536 && (EnvFlag == 0)) ECount[ch] += ESpeed[ch];
                     //####MMLProc (ch);
                     JmpSafe = 0;
                     //dec (MCount[ch]);
-                    if (t.PorLen[ch] > 0) {
-                        Tmporc = t.MCount[ch] - t.SeqTime;
-                        t.Steps[ch] = (
-                            div(t.PorStart[ch], t.PorLen[ch]) * Tmporc +
-                            div(t.PorEnd[ch], t.PorLen[ch] * (t.PorLen[ch] - Tmporc))
+                    if (PorLen[ch] > 0) {
+                        Tmporc = MCount[ch] - t.SeqTime;
+                        Steps[ch] = (
+                            div(PorStart[ch], PorLen[ch]) * Tmporc +
+                            div(PorEnd[ch], PorLen[ch] * (PorLen[ch] - Tmporc))
                         );
                     }
-                    //if (ch==0) console.log("ch",ch,"Code",t.MCount[ch],t.SeqTime);
+                    //if (ch==0) console.log("ch",ch,"Code",MCount[ch],t.SeqTime);
 
-                    while (t.MCount[ch] <= t.SeqTime) {
+                    while (MCount[ch] <= t.SeqTime) {
                         //MCount[ch]=0;
-                        var pc = t.MPointC[ch];
-                        LParam = t.MPoint[ch][pc + 1];
-                        HParam = t.MPoint[ch][pc + 2];
-                        var code = t.MPoint[ch][pc];
+                        var pc = MPointC[ch];
+                        LParam = MPoint[ch][pc + 1];
+                        HParam = MPoint[ch][pc + 2];
+                        var code = MPoint[ch][pc];
                         //console.log("ch",ch,"Code",code)
                         if (code >= 0 && code < 96 || code === MRest) {
-                            t.Play1Sound(ch, code, t.Slur[ch]);
-                            if (!t.Slur[ch]) t.LfoDC[ch] = t.LfoD[ch];
-                            t.Slur[ch] = False;
+                            t.Play1Sound(ch, code, Slur[ch]);
+                            if (!Slur[ch]) LfoDC[ch] = LfoD[ch];
+                            Slur[ch] = False;
                             //MCount[ch]=SPS div LParam;
-                            t.MCount[ch] = t.SeqTime +
+                            MCount[ch] = t.SeqTime +
                                 (LParam + HParam * 256) * 2;
                             // SPS=22050の場合 *2 を *1 に。
                             // SPS=x の場合   * (x/22050)
-                            t.MPointC[ch] += 3;
+                            MPointC[ch] += 3;
                         } else switch (code) {
                             case MPor:{
                                  t.Play1Por (ch,
                                    LParam,
                                    HParam,
-                                   t.Slur[ch]
+                                   Slur[ch]
                                  );
-                                 t.Slur[ch]=False;
-                                 t.MCount[ch]=t.SeqTime+
-                                 ( t.MPoint[ch][pc + 3]+t.MPoint[ch][pc + 4]*256 )*2;
+                                 Slur[ch]=False;
+                                 MCount[ch]=t.SeqTime+
+                                 ( MPoint[ch][pc + 3]+MPoint[ch][pc + 4]*256 )*2;
                                 // SPS=22050の場合 *2 を *1 に。
-                                 t.PorLen[ch]=t.MCount[ch]-t.SeqTime;
-                                 t.MPointC[ch]+=5;
+                                 PorLen[ch]=MCount[ch]-t.SeqTime;
+                                 MPointC[ch]+=5;
                             }break;
                             case MTempo:
                                 {
                                     t.Tempo = LParam + HParam * 256;
-                                    t.MPointC[ch] += 3;
+                                    MPointC[ch] += 3;
                                 }
                                 break;
                             case MVol:
                                 {
-                                    t.EVol[ch] = LParam;
-                                    t.MPointC[ch] += 2;
+                                    EVol[ch] = LParam;
+                                    MPointC[ch] += 2;
                                 }
                                 break;
                             case MBaseVol:
                                 {
-                                    t.EBaseVol[ch] = LParam;
-                                    t.MPointC[ch] += 2;
+                                    EBaseVol[ch] = LParam;
+                                    MPointC[ch] += 2;
                                 }
                                 break;
                             case Mps:
                                 {
-                                    t.ESpeed[ch] = LParam;
-                                    t.MPointC[ch] += 2;
+                                    ESpeed[ch] = LParam;
+                                    MPointC[ch] += 2;
                                 }
                                 break;
                             case MSelWav:
                                 {
-                                    //SccWave[ch]=@t.WaveDat[LParam,0];
+                                    //SccWave[ch]=@WaveDat[LParam,0];
                                     t.SelWav(ch, LParam);
-                                    t.MPointC[ch] += 2;
+                                    MPointC[ch] += 2;
                                 }
                                 break;
                             case MWrtWav:
                                 {
-                                    t.MPointC[ch] += 34; // MWrtWav wavno data*32
+                                    MPointC[ch] += 34; // MWrtWav wavno data*32
                                     for (i = 0; i < 32; i++) {
-                                        t.WaveDat[LParam][i] = t.MPoint[ch][pc + 2 + i];
+                                        WaveDat[LParam][i] = MPoint[ch][pc + 2 + i];
                                     }
                                 }
                                 break;
                             case MSelEnv:
                                 {
-                                    t.EShape[ch] = t.EnvDat[LParam];
-                                    t.MPointC[ch] += 2;
+                                    EShape[ch] = EnvDat[LParam];
+                                    MPointC[ch] += 2;
                                 }
                                 break;
                             case MWrtEnv:
                                 { // MWrtEnv envno data*32
-                                    t.MPointC[ch] += 34;
+                                    MPointC[ch] += 34;
                                     for (i = 0; i < 32; i++) {
-                                        wdtmp = t.MPoint[ch][pc + 2 + i];
+                                        wdtmp = MPoint[ch][pc + 2 + i];
                                         if (wdtmp > 15) wdtmp = 15;
-                                        t.EnvDat[LParam][i] = wdtmp;
+                                        EnvDat[LParam][i] = wdtmp;
                                     }
                                 }
                                 break;
                             case MJmp:
                                 {
                                     if (t.WavOutMode) {
-                                        t.MPointC[ch] += 5;
+                                        MPointC[ch] += 5;
                                     } else {
-                                        /*console.log("old mpointc ",t.MPointC[ch],LParam,HParam,t.MPoint[ch][pc + 3],t.MPoint[ch][pc + 4],LParam << 0 +
+                                        /*console.log("old mpointc ",MPointC[ch],LParam,HParam,MPoint[ch][pc + 3],MPoint[ch][pc + 4],LParam << 0 +
                                         HParam << 8 +
-                                        t.MPoint[ch][pc + 3] << 16 +
-                                        t.MPoint[ch][pc + 4] << 24);*/
-                                        t.MPointC[ch] += array2Int(t.MPoint[ch], pc+1);
+                                        MPoint[ch][pc + 3] << 16 +
+                                        MPoint[ch][pc + 4] << 24);*/
+                                        MPointC[ch] += array2Int(MPoint[ch], pc+1);
                                         /*LParam << 0 +
                                         HParam << 8 +
-                                        t.MPoint[ch][pc + 3] << 16 +
-                                        t.MPoint[ch][pc + 4] << 24;*/
-                                        //console.log("new mpointc ",t.MPointC[ch]);
+                                        MPoint[ch][pc + 3] << 16 +
+                                        MPoint[ch][pc + 4] << 24;*/
+                                        //console.log("new mpointc ",MPointC[ch]);
                                     }
                                     JmpSafe++;
                                     if (JmpSafe > 1) {
                                         console.log("Jumpsafe!");
                                         alstp=t.StopMML(ch);
-                                        t.MCount[ch] = t.SeqTime + 1;
+                                        MCount[ch] = t.SeqTime + 1;
                                     }
                                 }
                                 break;
                             case MLabel:
                                 if (t.WavOutMode && ch==0) console.log("@label", LParam , bufferState.writtenSamples+"/"+t.sampleRate );
-                                t.MPointC[ch]+=2;
+                                MPointC[ch]+=2;
                                 break;
                             case MSlur:
                                 {
-                                    t.Slur[ch] = True;
-                                    t.MPointC[ch] += 1;
+                                    Slur[ch] = True;
+                                    MPointC[ch] += 1;
                                 }
                                 break;
                             case MWait:
                                 {
                                     t.WaitMML(ch);
-                                    t.MPointC[ch] += 1;
+                                    MPointC[ch] += 1;
                                 }
                                 break;
                             case MCom:
                                 {
-                                    t.ComStr = StrPas(t.MPoint[ch], pc + 1);
-                                    t.MPointC[ch] += t.ComStr.length + 2; // opcode str \0
+                                    t.ComStr = StrPas(MPoint[ch], pc + 1);
+                                    MPointC[ch] += t.ComStr.length + 2; // opcode str \0
                                     //inc (MPoint[ch],length(comstr)+2);
                                 }
                                 break;
                             case MWOut:
                                 {
-                                    t.WFilename = StrPas(t.MPoint[ch], pc + 1);
-                                    t.MPointC[ch] += t.WFilename.length + 2; // opcode str \0
+                                    t.WFilename = StrPas(MPoint[ch], pc + 1);
+                                    MPointC[ch] += t.WFilename.length + 2; // opcode str \0
                                     //inc (MPoint[ch],length(WFilename)+2);
                                 }
                                 break;
                             case MWEnd:
                                 {
-                                    t.MPointC[ch] += 1;
+                                    MPointC[ch] += 1;
                                 }
                                 break;
                             case MDet:
                                 {
-                                    t.Detune[ch] = ShortInt(LParam);
-                                    t.MPointC[ch] += 2;
+                                    Detune[ch] = ShortInt(LParam);
+                                    MPointC[ch] += 2;
                                 }
                                 break;
                             case MLfo:
                                 {
-                                    t.LfoSync[ch] = (LParam);
-                                    t.LfoV[ch] = (HParam) * 65536;
-                                    t.LfoA[ch] = (t.MPoint[ch][pc + 3]);
-                                    t.LfoD[ch] = 0;
-                                    t.MPointC[ch] += 4;
+                                    LfoSync[ch] = (LParam);
+                                    LfoV[ch] = (HParam) * 65536;
+                                    LfoA[ch] = (MPoint[ch][pc + 3]);
+                                    LfoD[ch] = 0;
+                                    MPointC[ch] += 4;
                                 }
                                 break;
                             case MLfoD:
                                 {
-                                    t.LfoD[ch] = LParam * t.sampleRate;
-                                    t.MPointC[ch] += 2;
+                                    LfoD[ch] = LParam * t.sampleRate;
+                                    MPointC[ch] += 2;
                                 }
                                 break;
                             case MSync:
                                 {
-                                    t.Sync[ch] = (LParam == 1);
-                                    t.MPointC[ch] += 2;
+                                    Sync[ch] = (LParam == 1);
+                                    MPointC[ch] += 2;
                                 }
                                 break;
                             case MPCMReg:{
-                                var fn=StrPas(t.MPoint[ch], pc+1);
-                                t.RegPCM (fn,t.MPoint[ch][pc+1+fn.length+1]);
-                                t.MPointC[ch]+=fn.length +3;
+                                var fn=StrPas(MPoint[ch], pc+1);
+                                t.RegPCM (fn,MPoint[ch][pc+1+fn.length+1]);
+                                MPointC[ch]+=fn.length +3;
                             }break;
                             case Mend:
                                 alstp=t.StopMML(ch); //MPoint[ch]=nil;
@@ -1144,7 +1146,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                             default:
                                 throw new Error("Invalid opcode" + code); //ShowMessage ('???'+IntToSTr(Byte(MPoint[ch]^)));
                                 alstp=t.StopMML(ch);
-                                t.MPointC[ch] += 1;
+                                MPointC[ch] += 1;
                         }
                     }
                     // End Of MMLProc
@@ -1176,7 +1178,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 //PrevWSum=WSum;
                 bufferState.writtenSamples++;
                 NoiseP++;
-                t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
+                WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
                 bufferState.WriteAd++;
                 bufferState.WriteAd = bufferState.WriteAd % BSize;
                 APos++;
@@ -1195,7 +1197,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             //             playpos  LS            LE
             //                       +-------------+
 
-        }
+        }//of refreshPSG
     }); // of Klass.define
     var undefs={};
     for(var k in defs) {
