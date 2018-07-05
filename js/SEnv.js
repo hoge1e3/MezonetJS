@@ -469,6 +469,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
              {$endif}*/
             t.Tempo = 120;
             t.ComStr = '';
+            t.performance={writtenSamples:0, elapsedTime:0};
             t.loadWDT();
         },
         initNode: function (t,options) {
@@ -881,6 +882,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             var mcountK=t.sampleRate / 22050;
             var tempoK=44100 / t.sampleRate ;
             var alstp=false;
+            var startTime=new Date().getTime();
+            var startSamples=bufferState.writtenSamples;
             //console.log(bufferState.WriteAd, WriteMax);
             while (bufferState.WriteAd != WriteMax) {
                 LfoInc = !LfoInc;
@@ -1179,6 +1182,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 APos++;
                 if (alstp) break;
             }
+            t.performance.elapsedTime+=new Date().getTime()-startTime;
+            t.performance.writtenSamples+=bufferState.writtenSamples-startSamples;
+            t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
             t.SeqTime120 = t.SeqTime120 % 120;
             //WTime=GetTickCount-WTime;
             t.PrevPos = t.Pos;

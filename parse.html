@@ -25,6 +25,9 @@ requirejs(["M2Parser","SEnv","wavWriter","FS"],function (P,SEnv,ww,FS) {
             dst.download();
         });
     };
+    setInterval(function () {
+        document.querySelector("#perf").innerText=Math.floor(senv.performance.writeRate*10)/10;
+    },1000);
 });
 window.onload=function () {
     var s=document.querySelectorAll(".mml");
@@ -60,6 +63,7 @@ function selectSample(name) {
 <button onclick="stop()">Stop</button>
 <button onclick="wav()">Download wav</button>
 </div>
+<div>performance: x<span id="perf"></span></div>
 <script class="mml" type="text/mml" data-name="Fanfare">
 1[l16cdeg4]
 2[l16efg>c4]
