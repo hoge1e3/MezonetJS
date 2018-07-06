@@ -6,7 +6,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         WvElC = 32,
         EnvElC = 32,
         WvC = 96,
-        wdataSize = 65536,
+        wdataSize = 48000,  // should be dividable by 120
         //   99=r 100=vol 101=ps (x*128)  255=end
         MRest = 99,
         MVol = 100,
@@ -1248,7 +1248,325 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             //             playpos  LS            LE
             //                       +-------------+
 
-        }// of RefreshPSG
+        },// of RefreshPSG
+        RefreshPSGFast: function(t,data,WriteAd,length) {
+            var i, ch, WaveMod, WriteBytes, wdtmp, inext, mid, w1, w2, //:integer;
+                TP = [],
+                vCenter = [], //:array [0..Chs-1] of Integer;
+                //Steps:array [0..Chs-1] of Integer;
+                Lambda, NewLambda, //:Real;
+                res, //:MMRESULT;
+                WriteTwice, LfoInc, //:Boolean;
+                WriteMax, //:integer;
+                nowt, //:longint;
+                // AllVCenter:Integer;
+                Wf=0, Wt=0, WMid=0, WRes=0, WSum=0, v=0, NoiseP=0, Tmporc=0, //:Integer;
+                LParam, HParam, WParam, //:Byte;
+                JmpSafe, EnvFlag, //:Integer;
+                se; //:^TSoundElem;
+
+            EnvFlag = 0;
+            LfoInc = True;
+            cnt++; //inc(cnt);
+
+            var mcountK=t.sampleRate / 22050;
+            var tempoK=44100 / t.sampleRate ;
+            //var alstp=false;
+            var startTime=new Date().getTime();
+            var startSamples=bufferState.writtenSamples;
+            //console.log(bufferState.WriteAd, WriteMax);
+            if (t.allStopped()) {
+                for (var i=WriteAd; i<=WriteAd+length; i++) {
+                    data[i]=0;
+                }
+                return;
+            }
+            var vv=[],SeqTime=t.SeqTime;
+            for (ch = 0; ch < Chs; ch++) {
+                if (t.MPoint[ch][t.MPointC[ch]] == nil) t.StopMML(ch);
+                if (t.PlayState[ch] != psPlay) continue;
+                if (t.PorLen[ch] > 0) {
+                    Tmporc = t.MCount[ch] - SeqTime;
+                    t.Steps[ch] = (
+                        div(t.PorStart[ch], t.PorLen[ch]) * Tmporc +
+                        div(t.PorEnd[ch], t.PorLen[ch] * (t.PorLen[ch] - Tmporc))
+                    );
+                }
+                if ((t.soundMode[ch]))
+                    v = t.EVol[ch];
+                else if ((t.Resting[ch]))
+                    v = 0;
+                else
+                    v = t.EShape[ch][t.ECount[ch] >>> 11] * t.EVol[ch] * t.EBaseVol[ch]; // 16bit
+                if (t.Fading < FadeMax) {
+                    v = v * div(t.Fading, FadeMax); // 16bit
+                }
+                vv[ch]=v;
+                if (t.ECount[ch] + t.ESpeed[ch]*(length/2) < 65536 ) t.ECount[ch] += t.ESpeed[ch]*(length/2);
+
+                //####MMLProc (ch);
+                JmpSafe = 0;
+                //dec (MCount[ch]);
+
+                //if (ch==0) console.log("ch",ch,"Code",t.MCount[ch],t.SeqTime);
+
+                while (t.MCount[ch] <= SeqTime) {
+                    //MCount[ch]=0;
+                    var pc = t.MPointC[ch];
+                    LParam = t.MPoint[ch][pc + 1];
+                    HParam = t.MPoint[ch][pc + 2];
+                    var code = t.MPoint[ch][pc];
+                    //console.log("ch",ch,"Code",code)
+                    if (code >= 0 && code < 96 || code === MRest) {
+                        t.Play1Sound(ch, code, t.Slur[ch]);
+                        if (!t.Slur[ch]) t.LfoDC[ch] = t.LfoD[ch];
+                        t.Slur[ch] = False;
+                        //MCount[ch]=SPS div LParam;
+                        t.MCount[ch] = SeqTime +
+                            (LParam + HParam * 256) * 2;
+                        // SPS=22050の場合 *2 を *1 に。
+                        // SPS=x の場合   * (x/22050)
+                        t.MPointC[ch] += 3;
+                    } else switch (code) {
+                        case MPor:{
+                             t.Play1Por (ch,
+                               LParam,
+                               HParam,
+                               t.Slur[ch]
+                             );
+                             t.Slur[ch]=False;
+                             t.MCount[ch]=SeqTime+
+                             ( t.MPoint[ch][pc + 3]+t.MPoint[ch][pc + 4]*256 )*2;
+                            // SPS=22050の場合 *2 を *1 に。
+                             t.PorLen[ch]=t.MCount[ch]-SeqTime;
+                             t.MPointC[ch]+=5;
+                        }break;
+                        case MTempo:
+                            {
+                                t.Tempo = LParam + HParam * 256;
+                                t.MPointC[ch] += 3;
+                            }
+                            break;
+                        case MVol:
+                            {
+                                t.EVol[ch] = LParam;
+                                t.MPointC[ch] += 2;
+                            }
+                            break;
+                        case MBaseVol:
+                            {
+                                t.EBaseVol[ch] = LParam;
+                                t.MPointC[ch] += 2;
+                            }
+                            break;
+                        case Mps:
+                            {
+                                t.ESpeed[ch] = LParam;
+                                t.MPointC[ch] += 2;
+                            }
+                            break;
+                        case MSelWav:
+                            {
+                                //SccWave[ch]=@t.WaveDat[LParam,0];
+                                t.SelWav(ch, LParam);
+                                t.MPointC[ch] += 2;
+                            }
+                            break;
+                        case MWrtWav:
+                            {
+                                t.MPointC[ch] += 34; // MWrtWav wavno data*32
+                                for (i = 0; i < 32; i++) {
+                                    t.WaveDat[LParam][i] = t.MPoint[ch][pc + 2 + i];
+                                }
+                            }
+                            break;
+                        case MSelEnv:
+                            {
+                                t.EShape[ch] = t.EnvDat[LParam];
+                                t.MPointC[ch] += 2;
+                            }
+                            break;
+                        case MWrtEnv:
+                            { // MWrtEnv envno data*32
+                                t.MPointC[ch] += 34;
+                                for (i = 0; i < 32; i++) {
+                                    wdtmp = t.MPoint[ch][pc + 2 + i];
+                                    if (wdtmp > 15) wdtmp = 15;
+                                    t.EnvDat[LParam][i] = wdtmp;
+                                }
+                            }
+                            break;
+                        case MJmp:
+                            {
+                                if (t.WavOutMode) {
+                                    t.MPointC[ch] += 5;
+                                } else {
+                                    /*console.log("old mpointc ",t.MPointC[ch],LParam,HParam,t.MPoint[ch][pc + 3],t.MPoint[ch][pc + 4],LParam << 0 +
+                                    HParam << 8 +
+                                    t.MPoint[ch][pc + 3] << 16 +
+                                    t.MPoint[ch][pc + 4] << 24);*/
+                                    t.MPointC[ch] += array2Int(t.MPoint[ch], pc+1);
+                                    /*LParam << 0 +
+                                    HParam << 8 +
+                                    t.MPoint[ch][pc + 3] << 16 +
+                                    t.MPoint[ch][pc + 4] << 24;*/
+                                    //console.log("new mpointc ",t.MPointC[ch]);
+                                }
+                                JmpSafe++;
+                                if (JmpSafe > 1) {
+                                    console.log("Jumpsafe!");
+                                    t.StopMML(ch);
+                                    t.MCount[ch] = SeqTime + 1;
+                                }
+                            }
+                            break;
+                        case MLabel:
+                            if (t.WavOutMode && ch==0) console.log("@label", LParam , bufferState.writtenSamples+"/"+t.sampleRate );
+                            t.MPointC[ch]+=2;
+                            break;
+                        case MSlur:
+                            {
+                                t.Slur[ch] = True;
+                                t.MPointC[ch] += 1;
+                            }
+                            break;
+                        case MWait:
+                            {
+                                t.WaitMML(ch);
+                                t.MPointC[ch] += 1;
+                            }
+                            break;
+                        case MCom:
+                            {
+                                t.ComStr = StrPas(t.MPoint[ch], pc + 1);
+                                t.MPointC[ch] += t.ComStr.length + 2; // opcode str \0
+                                //inc (MPoint[ch],length(comstr)+2);
+                            }
+                            break;
+                        case MWOut:
+                            {
+                                t.WFilename = StrPas(t.MPoint[ch], pc + 1);
+                                t.MPointC[ch] += t.WFilename.length + 2; // opcode str \0
+                                //inc (MPoint[ch],length(WFilename)+2);
+                            }
+                            break;
+                        case MWEnd:
+                            {
+                                t.MPointC[ch] += 1;
+                            }
+                            break;
+                        case MDet:
+                            {
+                                t.Detune[ch] = ShortInt(LParam);
+                                t.MPointC[ch] += 2;
+                            }
+                            break;
+                        case MLfo:
+                            {
+                                t.LfoSync[ch] = (LParam);
+                                t.LfoV[ch] = (HParam) * 65536;
+                                t.LfoA[ch] = (t.MPoint[ch][pc + 3]);
+                                t.LfoD[ch] = 0;
+                                t.MPointC[ch] += 4;
+                            }
+                            break;
+                        case MLfoD:
+                            {
+                                t.LfoD[ch] = LParam * t.sampleRate;
+                                t.MPointC[ch] += 2;
+                            }
+                            break;
+                        case MSync:
+                            {
+                                t.Sync[ch] = (LParam == 1);
+                                t.MPointC[ch] += 2;
+                            }
+                            break;
+                        case MPCMReg:{
+                            var fn=StrPas(t.MPoint[ch], pc+1);
+                            t.RegPCM (fn,t.MPoint[ch][pc+1+fn.length+1]);
+                            t.MPointC[ch]+=fn.length +3;
+                        }break;
+                        case Mend:
+                            t.StopMML(ch); //MPoint[ch]=nil;
+                            break;
+                        default:
+                            throw new Error("Invalid opcode" + code); //ShowMessage ('???'+IntToSTr(Byte(MPoint[ch]^)));
+                            t.StopMML(ch);
+                            t.MPointC[ch] += 1;
+                    }
+                }
+                // End Of MMLProc
+            }
+            t.handleAllState();
+            t.SeqTime+= t.Tempo * (length/120);
+            for (ch = 0; ch < Chs; ch++) {
+                if (t.PlayState[ch] != psPlay) continue;
+                for (var i=WriteAd; i<WriteAd+length; i++) {
+                    LfoInc = !LfoInc;
+                    //EnvFlag++;
+                    //if (EnvFlag > 1) EnvFlag = 0;
+
+                    WSum = ch==0? 0 : data[i];
+                    v=vv[ch];
+                    if (v > 0) {
+                        i = chkn(t.SccCount[ch] >>> (32 - t.L2WL[ch]));
+                        //inext=(i+1) & ((1 << L2WL[ch])-1);
+
+                        //mid=(SccCount[ch] >> (24-L2WL[ch])) & 255;
+
+                        // *****000 00000000 00000000 00000000
+                        //                      ***** 00000000
+
+                        w1 = chkn(t.SccWave[ch][i]);
+                        chkn(v);
+                        //w2=Byte((SccWave[ch]+inext)^) ;
+
+                        WSum += (
+                            div((w1 * v), (16 * 128))
+                        ) - div(v, 16);
+
+                        if (!t.Sync[ch]) {
+                            (t.SccCount[ch] += t.Steps[ch]);
+                        } else {
+                            if ((t.SccCount[ch] < -t.Steps[ch] * 2) || (t.SccCount[ch] >= 0))(t.SccCount[ch] += t.Steps[ch]);
+                        }
+                        if ((t.LfoV[ch] != 0)) {
+                            if ((t.LfoDC[ch] > 0)) {
+                                (t.LfoDC[ch] -= t.Tempo);
+                            } else {
+                                (t.SccCount[ch] +=
+                                    sinT[t.LfoC[ch] >>> (16 + sinMax_s)] *
+                                    div(t.Steps[ch], 512) *
+                                    div(t.LfoA[ch], 256)
+                                );
+                                if (LfoInc) t.LfoC[ch] += t.LfoV[ch];
+                            }
+
+                        }
+                    }
+
+                    if (WSum > 32767) WSum = 32767; //16bit
+                    if (WSum < -32768) WSum = -32768; //16bit
+                    data[i]=WSum/32768;
+                    if (ch==0) t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
+                    NoiseP++;
+                }//of for (var i=WriteAd; i<=WriteAd+length; i++
+                //bufferState.writtenSamples+=length;
+
+
+            }// of ch loop
+            //t.performance.elapsedTime+=new Date().getTime()-startTime;
+            //t.performance.writtenSamples+=bufferState.writtenSamples-startSamples;
+            //t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
+            //WTime=GetTickCount-WTime;
+            //BufferUnderRun= getPlayPos - LastWriteStartPos;
+
+            //--------------|---------------------------
+            //             playpos  LS            LE
+            //                       +-------------+
+
+        }// of RefreshPSGFast
     }); // of Klass.define
     var undefs={};
     for(var k in defs) {
