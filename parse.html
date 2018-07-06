@@ -6,7 +6,7 @@
 requirejs.config(reqConf);
 requirejs(["M2Parser","SEnv","wavWriter","FS"],function (P,SEnv,ww,FS) {
     FS.mount("/ram/",FS.LSFS.ramDisk());
-    window.senv=new SEnv({useScriptProcessor:false});
+    window.senv=new SEnv({useScriptProcessor:false,useFast:true});
     window.play=function () {
         var mzo=P.parseMML(document.querySelector("#mml").value);
         window.senv.load(mzo);

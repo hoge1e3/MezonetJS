@@ -382,6 +382,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             var i, j; //:Integer;
             options=options||{};
             t.useScriptProcessor=options.useScriptProcessor;
+            t.useFast=options.useFast;
             t.initNode({});
             //t.WavPlaying=false;
             // inherited Create (Handle);
@@ -508,6 +509,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         },
         startRefreshLoop: function (t) {
             if (t.refreshTimer!=null) return;
+            if (t.useFast) return t.startRefreshLoopFast();
             t.bufferState={
                 buffer: t.buf.getChannelData(0),
                 WriteAd: 0,//(t.getPlayPos() + 500)% wdataSize;
@@ -523,6 +525,27 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 t.RefreshPSG(t.bufferState);
             }
             t.refreshTimer=setInterval(refresh,100);
+        },
+        startRefreshLoopFast: function (t) {
+            var grid=120;
+            var data=t.buf.getChannelData(0);
+            var WriteAd=0;
+            for (var i=0;i<wdataSize;i+=grid) {
+                t.RefreshPSGFast(data,i,grid);
+            }
+            function refresh() {
+                if (!t.isSrcPlaying) return;
+                var cnt=0;
+                var playPosZone=Math.floor(t.getPlayPos()/grid);
+                while (true) {
+                    if (cnt++>wdataSize/grid) throw new Error("Mugen "+playPosZone);
+                    var writeAdZone=Math.floor(WriteAd/grid);
+                    if (playPosZone===writeAdZone) break;
+                    t.RefreshPSGFast(data,WriteAd,grid);
+                    WriteAd=(WriteAd+grid)%wdataSize;
+                }
+            }
+            t.refreshTimer=setInterval(refresh,16);
         },
         stopRefreshLoop: function (t) {
             if (t.refreshTimer==null) return;
@@ -1273,7 +1296,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             var tempoK=44100 / t.sampleRate ;
             //var alstp=false;
             var startTime=new Date().getTime();
-            var startSamples=bufferState.writtenSamples;
+            //var startSamples=bufferState.writtenSamples;
             //console.log(bufferState.WriteAd, WriteMax);
             if (t.allStopped()) {
                 for (var i=WriteAd; i<=WriteAd+length; i++) {
@@ -1281,7 +1304,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 }
                 return;
             }
-            var vv=[],SeqTime=t.SeqTime;
+            var vv=[],SeqTime=t.SeqTime,lpchk=0;
             for (ch = 0; ch < Chs; ch++) {
                 if (t.MPoint[ch][t.MPointC[ch]] == nil) t.StopMML(ch);
                 if (t.PlayState[ch] != psPlay) continue;
@@ -1311,6 +1334,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 //if (ch==0) console.log("ch",ch,"Code",t.MCount[ch],t.SeqTime);
 
                 while (t.MCount[ch] <= SeqTime) {
+                    //if (lpchk++>1000) throw new Error("Mugen2");
                     //MCount[ch]=0;
                     var pc = t.MPointC[ch];
                     LParam = t.MPoint[ch][pc + 1];
@@ -1499,15 +1523,17 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 // End Of MMLProc
             }
             t.handleAllState();
-            t.SeqTime+= t.Tempo * (length/120);
+            t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK );
             for (ch = 0; ch < Chs; ch++) {
                 if (t.PlayState[ch] != psPlay) continue;
-                for (var i=WriteAd; i<WriteAd+length; i++) {
+                for (var ad=WriteAd; ad<WriteAd+length; ad++) {
+                    //if (lpchk++>100000) throw new Error("Mugen3 "+WriteAd+"  "+length);
+
                     LfoInc = !LfoInc;
                     //EnvFlag++;
                     //if (EnvFlag > 1) EnvFlag = 0;
 
-                    WSum = ch==0? 0 : data[i];
+                    WSum = ch==0? 0 : data[ad]
                     v=vv[ch];
                     if (v > 0) {
                         i = chkn(t.SccCount[ch] >>> (32 - t.L2WL[ch]));
@@ -1522,9 +1548,13 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         chkn(v);
                         //w2=Byte((SccWave[ch]+inext)^) ;
 
-                        WSum += (
+                        /*WSum += ((
                             div((w1 * v), (16 * 128))
-                        ) - div(v, 16);
+                        ) - div(v, 16))/32768;*/
+                        WSum += (
+                            (w1 * v)/ 0x4000000
+                        ) - (v / 0x80000);
+
 
                         if (!t.Sync[ch]) {
                             (t.SccCount[ch] += t.Steps[ch]);
@@ -1546,9 +1576,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         }
                     }
 
-                    if (WSum > 32767) WSum = 32767; //16bit
-                    if (WSum < -32768) WSum = -32768; //16bit
-                    data[i]=WSum/32768;
+                    if (WSum > 1) WSum = 1; //16bit
+                    if (WSum < -1) WSum = -1; //16bit
+                    data[ad]=WSum;
                     if (ch==0) t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
                     NoiseP++;
                 }//of for (var i=WriteAd; i<=WriteAd+length; i++
