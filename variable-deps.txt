@@ -1,0 +1,10 @@
+// SeqTime -> Mcount -> porlen -> tmporc ->  Steps ->  SccCount  -> i of Sccwave[ch][i]
+
+
+Variable range:
+
+t.LfoV[ch] = (HParam) * 65536;
+Steps
+SccCount: 0...0xffffffff
+
+

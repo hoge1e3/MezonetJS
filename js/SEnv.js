@@ -673,8 +673,42 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.WaitMML(c);
             t.PlayState[c] = psStop;
             t.MCount[c] = t.SeqTime + 1;
-            return t.allStopped();
+            //return t.allStopped();
             //WOutEnd;
+        },
+        allWaiting: function (t) {
+            for(var i=0;i<Chs;i++) {
+                if (t.PlayState[i] == psPlay) {
+                    return false;
+                }
+            }
+            return true;
+        },
+        handleAllState: function (t) {
+            var allWait=true,allStop=true;
+            for(var i=0;i<Chs;i++) {
+                switch (t.PlayState[i]) {
+                case psPlay:
+                    allWait=false;
+                case psWait:
+                    allStop=false;
+                    break;
+                }
+            }
+            //          alw     als
+            // P        F       F
+            // W        T       F
+            // S        T       T
+            // P,W      F       F
+            // W,S      T       F
+            // S,P      F       F
+            // P,W,S    F       F
+            if (allWait && !allStop) {
+                for(var i=0;i<Chs;i++) {
+                    t.RestartMML(i);
+                }
+            }
+            return allStop;
         },
         allStopped: function (t) {
             for(var i=0;i<Chs;i++) {
@@ -692,6 +726,13 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 t.MCount[c] = t.SeqTime + 1;
             }
         },
+        restartIfAllWaiting: function (t) {
+            if (t.allWaiting()) {
+                for(var i=0;i<Chs;i++) {
+                    t.RestartMML(i);
+                }
+            }
+        },
         //procedure TEnveloper.WaitMML (c:Integer);
         WaitMML: function(t, c) {
             var i; //:Integer;
@@ -699,7 +740,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             //MPoint[c]=nil;
             t.PlayState[c] = psWait;
             t.MCount[c] = t.SeqTime + 1;
-            i = 0;
+            /*i = 0;
             while (i < Chs) {
                 if (t.PlayState[i] == psPlay) break;
                 i++;
@@ -708,7 +749,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 for (i = 0; i < Chs; i++) {
                     t.RestartMML(i);
                 }
-            }
+            }*/
         },
         //procedure TEnveloper.Start;
         Start: function(t) {
@@ -881,17 +922,24 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
 
             var mcountK=t.sampleRate / 22050;
             var tempoK=44100 / t.sampleRate ;
-            var alstp=false;
+            //var alstp=false;
             var startTime=new Date().getTime();
             var startSamples=bufferState.writtenSamples;
             //console.log(bufferState.WriteAd, WriteMax);
+            if (t.allStopped()) {
+                while (bufferState.WriteAd != WriteMax) {
+                    data[bufferState.WriteAd]=0;
+                    bufferState.WriteAd=(bufferState.WriteAd+1)%BSize;
+                }
+                return;
+            }
             while (bufferState.WriteAd != WriteMax) {
                 LfoInc = !LfoInc;
                 WSum = 0; //128;   // 0 for 16bit
                 EnvFlag++;
                 if (EnvFlag > 1) EnvFlag = 0;
                 for (ch = 0; ch < Chs; ch++) {
-                    if (t.MPoint[ch][t.MPointC[ch]] == nil) alstp=t.StopMML(ch);
+                    if (t.MPoint[ch][t.MPointC[ch]] == nil) t.StopMML(ch);
                     if ((!t.soundMode[ch]) && (t.PlayState[ch] != psPlay)) continue;
                     //----
                     /*while (nextPeekElemIdx[ch] != nextPokeElemIdx[ch]) {
@@ -1066,7 +1114,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                     JmpSafe++;
                                     if (JmpSafe > 1) {
                                         console.log("Jumpsafe!");
-                                        alstp=t.StopMML(ch);
+                                        t.StopMML(ch);
                                         t.MCount[ch] = t.SeqTime + 1;
                                     }
                                 }
@@ -1139,16 +1187,16 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                 t.MPointC[ch]+=fn.length +3;
                             }break;
                             case Mend:
-                                alstp=t.StopMML(ch); //MPoint[ch]=nil;
+                                t.StopMML(ch); //MPoint[ch]=nil;
                                 break;
                             default:
                                 throw new Error("Invalid opcode" + code); //ShowMessage ('???'+IntToSTr(Byte(MPoint[ch]^)));
-                                alstp=t.StopMML(ch);
+                                t.StopMML(ch);
                                 t.MPointC[ch] += 1;
                         }
                     }
                     // End Of MMLProc
-                }
+                }// of ch loop
                 t.SeqTime += div(t.SeqTime120 + t.Tempo * tempoK, 120) - div(t.SeqTime120, 120);
                 t.SeqTime120 += Math.floor( t.Tempo * tempoK) ;
 
@@ -1180,8 +1228,13 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 bufferState.WriteAd++;
                 bufferState.WriteAd = bufferState.WriteAd % BSize;
                 APos++;
-                if (alstp) break;
-            }
+                if (bufferState.WriteAd & 15==0) {
+                    //t.restartIfAllWaiting();
+                    if (t.handleAllState()) {
+                        break;
+                    }
+                }
+            }//of while (bufferState.WriteAd != WriteMax)
             t.performance.elapsedTime+=new Date().getTime()-startTime;
             t.performance.writtenSamples+=bufferState.writtenSamples-startSamples;
             t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
