@@ -1342,11 +1342,12 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     var code = t.MPoint[ch][pc];
                     //console.log("ch",ch,"Code",code)
                     if (code >= 0 && code < 96 || code === MRest) {
+                        //console.log(ch, t.MCount[ch], SeqTime,(LParam + HParam * 256) * 2);
                         t.Play1Sound(ch, code, t.Slur[ch]);
                         if (!t.Slur[ch]) t.LfoDC[ch] = t.LfoD[ch];
                         t.Slur[ch] = False;
                         //MCount[ch]=SPS div LParam;
-                        t.MCount[ch] = SeqTime +
+                        t.MCount[ch] +=
                             (LParam + HParam * 256) * 2;
                         // SPS=22050の場合 *2 を *1 に。
                         // SPS=x の場合   * (x/22050)
@@ -1359,7 +1360,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                t.Slur[ch]
                              );
                              t.Slur[ch]=False;
-                             t.MCount[ch]=SeqTime+
+                             t.MCount[ch]+=
                              ( t.MPoint[ch][pc + 3]+t.MPoint[ch][pc + 4]*256 )*2;
                             // SPS=22050の場合 *2 を *1 に。
                              t.PorLen[ch]=t.MCount[ch]-SeqTime;
