@@ -9,7 +9,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         //   99=r 100=vol 101=ps (x*128)  255=end
         MRest = 99,
         MVol = 100,
-        Mps = 101,
+        MPs = 101,
         MSelWav = 102,
         MTempo = 103,
         MJmp = 104,
@@ -41,6 +41,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         Envs = 16,
         PCMWavs = 16, // 96-111
         FadeMax = 256,
+        ValDef=0x7fffffff,
 
         div = function(x, y) {
             return Math.trunc(chkn(x,"x") / chkn(y,"y") );
@@ -136,20 +137,21 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
     parser.def({
         mml: [rep0("Block"),Grammar.P.TokensParser.eof],
         Block: ["BlockHdr",tk("["),"Exs",tk("]")],
-        BlockHdr: or("ChSel"),//"ValOnly"),
+        BlockHdr: or("ChSel","ValOnly"),
+        ValOnly: [tk("Value")],
         ChSel: sep1("ChRange",tk(",")),
         ChRange: [tk("Num"),opt([tk("-"),tk("Num")])],
         Exs: rep0(or("replace","realsound","renpu","portament",
         "singleequ","stringequ","pcmreg",
         "tieslur","wait","reloct","setlen","toneshift","repts")),
-        replace: tk("Value"),
+        replace: [tk("Value")],
         singleequ: [tk("SingleOption"),sep1("DefaultNum",tk(","))],
-        renpu: [tk("{"),rep0("SoundEl","relocts"),tk("}")],
-        portament: [tk("@por"),"SoundEl","relocts","SoundEl","Length"],
+        renpu: [tk("{"),rep0(tk("SoundEl"),"relocts"),tk("}")],
+        portament: [tk("@por"),tk("SoundEl"),"relocts",tk("SoundEl"),"Length"],
         stringequ: [tk("StrOption"),tk("String")],
         pcmreg: [tk("@pcm"),tk("String"),tk(","),"DefaultNum"],
         tieslur: tk("&"),
-        wait: tk("LWait"),
+        wait: [tk("LWait")],
         setlen: [tk("LengthOption"),"Length"],
         toneshift: [tk("_"),rep0(tk("OctShift")),tk("SoundEl")],
         repts: [tk("("),"Exs",tk(")"),tk("Num")],
@@ -237,6 +239,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
             if (val>=min && val<=max) return val;
             throw new Error("Out of range for "+mesg+": "+val);
         }
+        var LastValue,ValueList={},ValDepth=0;
         var v=Visitor({
             mml: function (node) {
                 node[0].forEach(function (n) {
@@ -291,6 +294,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                         case "v=-":
                         break;
                         case "@":
+                        // zCmd
                         wrt(MSelWav);
                         wrt(chkRange(b,0,95,sa));
                         break;
@@ -306,6 +310,17 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                         });
                         wrt(MJmp);
                         wrt32(5);
+                        break;
+                        case 'pa':
+                        chkRange(b,0,15,sa);
+                        // ZCmd
+                        wrt(MSelEnv);
+                        wrt(b);
+                        break;
+                        case 'ps':
+                        chkRange(b,0,100,sa);
+                        wrt(MPs);
+                        wrt(b);
                         break;
                     }
                 } else {
@@ -366,12 +381,33 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 //;
                 var chsel=node[0];
                 var chs=v.visit(chsel);
+                if (chs===ValDef) {
+                    ValueList[LastValue]=node[2];
+                    return;
+                }
                 console.log("chs",chs);
+
                 chs.forEach(function (ch,i) {
                     if (!ch) return;
                     selCh(i);
                     v.visit(node[2]);
                 });
+            },
+            ValOnly: function(node) {
+                LastValue=node[0]+"";
+                return ValDef;
+            },
+            replace: function (node) {
+                var n=node[0]+"";
+                ValDepth++;
+                if (ValDepth>16)
+                   throw new Error('マクロ参照が複雑すぎます');
+                var vn=ValueList[n];
+                if (!vn) {
+                    throw new Error('マクロ'+n+'は定義されていません');
+                }
+                v.visit(vn);
+                ValDepth--;
             },
             repts: function (node) {
                 var times=node[3]+""-0;
@@ -382,6 +418,9 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                     restoreChInfo(sv);
                     v.visit(expr);
                 }
+            },
+            wait: function (node) {
+                wrt(MWait);
             }
         });
         v.def=function (node) {

@@ -6,7 +6,7 @@
 requirejs.config(reqConf);
 requirejs(["M2Parser","SEnv","wavWriter","FS"],function (P,SEnv,ww,FS) {
     FS.mount("/ram/",FS.LSFS.ramDisk());
-    window.senv=new SEnv({useScriptProcessor:false,useFast:true});
+    window.senv=new SEnv({useScriptProcessor:false,useFast:false});
     window.play=function () {
         var mzo=P.parseMML(document.querySelector("#mml").value);
         window.senv.load(mzo);
@@ -83,6 +83,43 @@ function selectSample(name) {
 <script class="mml" type="text/mml" data-name="death">
 1[o5 l64 c<c<c<c>>> v9 c<c<c<c>>>]
 1[ v8 afedc32  v6 gfedc32 v4 fedc32  v2 edc32  v1 c<a+a<a<a]
+</script>
+<script class="mml" type="text/mml" data-name="tones">
+1[ps5pa0o4]
+
+1[@0cde]     ; PSG (rectangle)
+1[@1<<cde>>] ; bass
+1[@2cde]
+1[@3cde]
+1[@4cde]     ; sine wave
+1[@8cde]     ;
+1[@9cde]     ; PSG duty 1/3
+1[@11ps5cde] ; PSG duty 1/7
+1[@12cde]
+1[@14cde]    ;
+1[@16cde]
+1[@20cde]    ; triangle
+1[@21cde]    ; saw
+1[@23cde]    ;
+1[@24cde]    ;
+1[@25cde]    ;
+1[@30<cde>]  ;
+1[@43>cde<]  ;
+1[@51cde]     ;
+1[@71<<cde>>]  ;
+1[@95<<c>c>c]  ; noise
+</script>
+<script class="mml" type="text/mml" data-name="envelope">
+; envelope velocity
+1[ps3 cde ps10 cde]
+; envelope shape
+1[o5]
+1[ps5 pa0 cde pa1 cde pa2 cde pa3 cde]
+</script>
+<script class="mml" type="text/mml" data-name="macro">
+$a$[cde]
+$b$[gfe]
+1[l16 o5 $a$ $a$ $a$ $b$   $a$ $a$ $b$ $b$   ]
 </script>
 <script class="mml" type="text/mml" data-name="Ribbon">
 1-3[ps5 v6]

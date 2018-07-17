@@ -1524,8 +1524,10 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             t.handleAllState();
             t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK );
+            var playingChCount=0;
             for (ch = 0; ch < Chs; ch++) {
                 if (t.PlayState[ch] != psPlay) continue;
+                playingChCount++;
                 for (var ad=WriteAd; ad<WriteAd+length; ad++) {
                     //if (lpchk++>100000) throw new Error("Mugen3 "+WriteAd+"  "+length);
 
@@ -1533,7 +1535,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     //EnvFlag++;
                     //if (EnvFlag > 1) EnvFlag = 0;
 
-                    WSum = ch==0? 0 : data[ad]
+                    WSum = playingChCount===1? 0 : data[ad]
                     v=vv[ch];
                     if (v > 0) {
                         i = chkn(t.SccCount[ch] >>> (32 - t.L2WL[ch]));
@@ -1586,9 +1588,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
 
 
             }// of ch loop
-            //t.performance.elapsedTime+=new Date().getTime()-startTime;
-            //t.performance.writtenSamples+=bufferState.writtenSamples-startSamples;
-            //t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
+            t.performance.elapsedTime+=new Date().getTime()-startTime;
+            t.performance.writtenSamples+=length;
+            t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
             //WTime=GetTickCount-WTime;
             //BufferUnderRun= getPlayPos - LastWriteStartPos;
 
