@@ -570,8 +570,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             this.sampleRate = this.context.sampleRate;
             var bufSrc = this.context.createBufferSource();
-            console.log(bufSrc);
-            console.log(bufSrc.noteOn);
+            //console.log(bufSrc);
+            //console.log(bufSrc.noteOn);
             this.node = this.context.createScriptProcessor(this.streamLength , 1, channel);
             if (typeof bufSrc.noteOn=="function") {
                 bufSrc.noteOn(0);
@@ -823,7 +823,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     //                   wm
                     // ..................S
                     t.RefreshPSG(b);
-                    console.log("writeAd",b.WriteAd);
+                    //console.log("writeAd",b.WriteAd);
                     allbuf=allbuf.concat(buf.slice(0,b.WriteAd));
                     if (!t.allStopped()) {
                         setTimeout(refresh,1);
@@ -1525,10 +1525,11 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             t.handleAllState();
             t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK );
-            var playingChCount=0;
+            for (var ad=WriteAd; ad<WriteAd+length; ad++) {
+                data[ad]=0;
+            }
             for (ch = 0; ch < Chs; ch++) {
                 if (t.PlayState[ch] != psPlay) continue;
-                playingChCount++;
                 for (var ad=WriteAd; ad<WriteAd+length; ad++) {
                     //if (lpchk++>100000) throw new Error("Mugen3 "+WriteAd+"  "+length);
 
@@ -1536,7 +1537,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     //EnvFlag++;
                     //if (EnvFlag > 1) EnvFlag = 0;
 
-                    WSum = playingChCount===1? 0 : data[ad]
+                    WSum = data[ad];
                     v=vv[ch];
                     if (v > 0) {
                         i = chkn(t.SccCount[ch] >>> (32 - t.L2WL[ch]));

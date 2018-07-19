@@ -74,7 +74,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         sinMax_s = 5,
         sinMax = 65536 >> sinMax_s, //2048,
         //SPS = 44100,
-        SPS96 = 22050*2,
+        SPS96 = 22050*2,//    64*9*5*7==20160
         /*SPS_60 = div(44100, 60),*/
         DivClock = 111860.78125,
         Loops = 163840,
@@ -353,7 +353,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                         wrt(ChInfo.PrevRealSnd);
                 }
                 var li=v.visit(node[1]) ;
-                console.log("Len",li);
+                //console.log("Len",li);
                 wrt(li & 255);
                 wrt(div(li , 256));
             },
