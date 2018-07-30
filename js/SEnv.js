@@ -172,70 +172,17 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             // log 2 WaveLength
             PCMW: Array, // [0..PCMWavs-1] of TWavLoader,
 
-            //SeLen: Array,
-            //SeVol: Array,
-            //SeReptLen: Array, // [0..Ses-1] of Integer,
-            //SePt: Array, // [0..Ses-1] of PChar,
             Delay: Integer,
 
-            //WTime: Integer,
-            //PrevWSum:Integer,
             Tempo: Integer,
             ComStr: String,
             WFilename: String,
 
             EnvDat: Array, // [0..Envs-1,0..EnvElC-1] of Byte,
 
-            //LastWriteStartPos: Integer,
-            //LastWriteEndPos: Integer,
-            //BufferUnderRun: Integer,
-
             WriteMaxLen: Integer,
-            //calibrationLen: Integer,
-            //timeLag: Integer,
-            //---
-            //sndElems: Array, // [0..chs-1,0..SndElemCount-1] of TSoundElem,
-            //nextPokeElemIdx: Array, // [0..chs-1] of Integer,
-            //nextPeekElemIdx: Array, // [0..chs-1] of Integer,
             soundMode: Array // [0..chs-1] of Boolean,
         },
-        /*
-             procedure calibration,
-             procedure InitSin,
-             procedure InitEnv,
-             procedure ConvM2T,
-             procedure PutEnv (c,t,v,sp:Word;s:PChar);
-             {$ifdef ForM2}
-             procedure WOutStart;
-             procedure WOutEnd;
-             procedure SetWOutMode (b:Boolean);
-             {$endif}
-             procedure Start;
-             procedure RefreshPSG;
-             procedure PlayKeyBd (n,WaveSel:Integer);
-             constructor Create(Handle:Hwnd);
-             procedure Play1Sound (c,n:Word;iss:Boolean);
-             procedure Play1Por (c,f,t:Word;iss:Boolean);
-             //procedure MMLProc (i:Integer);
-             procedure PlayMML (c:Word;s:PChar);
-             procedure StopMML (c:Integer);
-             procedure stopLoopSe;
-             procedure stopAllSe;
-             procedure RestartMML (c:Integer);
-             procedure WaitMML (c:Integer);
-             procedure PlaySe (sn:Integer;p:PChar;l:Integer;v:Integer;rept:Boolean);
-             procedure SelWav (ch,n:Integer);
-             procedure RegPCM (fn:string;n:Integer);
-
-             procedure setSound(ch:Integer; typ:Integer; val:Integer);
-             procedure setSoundTime(ch:Integer; typ:Integer; val:Integer; t:Integer);
-             function getPlayPos:Integer;
-         end;
-
-
-        implementation
-
-        uses SMezonet;*/
         load:function (t,d) {
             var ver=readLong(d);
             var chs=readByte(d);
@@ -324,25 +271,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             e.val = val;
             t.nextPokeElemIdx[ch] = (t.nextPokeElemIdx[ch] + 1) % sndElemCount;
         },*/
-        /*procedure TEnveloper.stopLoopSe;
-        var i:Integer;
-        {
-                for i=0 to Ses-1 ) {
-                    if SeReptLen[i]>0 ) {
-                        SeReptLen[i]=0;
-                        SeLen[i]=0;
-                    end;
-                end;
-        end;
-
-        procedure TEnveloper.stopAllSe;
-        var i:Integer;
-        {
-                for ( i=0 to Ses-1 ) {
-                    SeLen[i]=0;
-                    SePt[i]=nil;
-                end;
-        end;*/
         InitSin: function(t) {
             var i; //:Integer;
             for (i = 0; i < sinMax; i++) {
@@ -383,6 +311,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             options=options||{};
             t.useScriptProcessor=options.useScriptProcessor;
             t.useFast=options.useFast;
+            t.resolution=options.resolution||120;
             t.initNode({});
             //t.WavPlaying=false;
             // inherited Create (Handle);
@@ -527,7 +456,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.refreshTimer=setInterval(refresh,100);
         },
         startRefreshLoopFast: function (t) {
-            var grid=120;
+            var grid=t.resolution;
             var data=t.buf.getChannelData(0);
             var WriteAd=0;
             for (var i=0;i<wdataSize;i+=grid) {
@@ -570,8 +499,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             this.sampleRate = this.context.sampleRate;
             var bufSrc = this.context.createBufferSource();
-            //console.log(bufSrc);
-            //console.log(bufSrc.noteOn);
             this.node = this.context.createScriptProcessor(this.streamLength , 1, channel);
             if (typeof bufSrc.noteOn=="function") {
                 bufSrc.noteOn(0);
@@ -657,29 +584,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
              t.PorEnd[c]=m2tInt[to]+t.Detune[c]*div(m2tInt[to] , 2048);//Trunc (DivClock/TP*65536/t.sampleRate)+Detune[c];
              if  (!iss) t.ECount[c]=0;
 
-        },/*
-        {$ifdef ForM2}
-        procedure TEnveloper.SetWOutMode (b:Boolean);
-        {
-             WavOutMode=b;
-             WFilename='';
-        end;
-
-        procedure TEnveloper.WOutStart;
-        {
-             if WavOutObj=nil ) {
-                WavOutObj=TWaveSaver.Create (WFilename,BSize*2);IncGar;
-             end;
-        end;
-
-        procedure TEnveloper.WOutEnd;
-        {
-             if WavOutObj!=nil ) {
-              WavOutObj.Free;DecGar;
-              WavOutObj=nil;
-             end;
-        end;
-        {$endif}*/
+        },
         //procedure TEnveloper.PlayMML (c:Word;s:PChar);
         /*PlayMML: function(t, c, s) { // s array of compiled mml (bytearray)
             if ((c < 0) || (c >= Chs)) return; // ) return;
@@ -696,8 +601,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.WaitMML(c);
             t.PlayState[c] = psStop;
             t.MCount[c] = t.SeqTime + 1;
-            //return t.allStopped();
-            //WOutEnd;
         },
         allWaiting: function (t) {
             for(var i=0;i<Chs;i++) {
@@ -763,16 +666,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             //MPoint[c]=nil;
             t.PlayState[c] = psWait;
             t.MCount[c] = t.SeqTime + 1;
-            /*i = 0;
-            while (i < Chs) {
-                if (t.PlayState[i] == psPlay) break;
-                i++;
-            }
-            if (i >= Chs) {
-                for (i = 0; i < Chs; i++) {
-                    t.RestartMML(i);
-                }
-            }*/
         },
         //procedure TEnveloper.Start;
         Start: function(t) {
@@ -784,19 +677,13 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         },
         Rewind: function (t) {
             var ch; //:Integer;
-            //if (t.WavPlaying) return;
-            // inherited Start;
-            //t.WavPlaying=true;
             t.SeqTime=0;
             for (ch = 0; ch < Chs; ch++) {
-                //t.nextPokeElemIdx[i] = 0;
-                //t.nextPeekElemIdx[i] = 0;
                 t.soundMode[ch] = False;
                 t.MPointC[ch] = 0;
                 t.PlayState[ch] = psPlay;
                 t.MCount[ch] = t.SeqTime;
             }
-            //t.LastWriteEndPos = 0;
         },
         Stop: function (t) {
             if (!t.BeginPlay) return;
@@ -804,6 +691,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.stopRefreshLoop();
         },
         wavOut: function (t) {
+            if (t.useFast) return t.wavOutFast();
             t.Stop();
             t.Rewind();
             var buf=[];
@@ -831,6 +719,40 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         t.WavOutMode=false;
                         succ(allbuf);
                     }
+                }
+            });
+        },
+        wavOutFast: function (t) {
+            t.Stop();
+            t.Rewind();
+            var buf=[];
+            var grid=t.resolution;
+            for (var i=0;i<grid;i++) buf.push(0);
+            var allbuf=[];
+            t.writtenSamples=0;
+            t.WavOutMode=true;
+            var sec=-1;
+            return new Promise(function (succ) {
+                setTimeout(refresh,0);
+                function refresh() {
+                    var ti=new Date().getTime()+1;
+                    while (new Date().getTime()<=ti) {
+                        for (var i=0;i<grid;i++) allbuf.push(0);
+                        t.RefreshPSGFast(allbuf,allbuf.length-grid,grid);
+                        t.writtenSamples+=grid;
+                        var ss=Math.floor(t.writtenSamples/t.sampleRate);
+                        if (ss>sec) {
+                            console.log("Written ",ss,"sec");
+                            sec=ss;
+                        }
+                        //allbuf=allbuf.concat(buf.slice());
+                        if (t.allStopped()) {
+                            t.WavOutMode=false;
+                            succ(allbuf);
+                            return;
+                        }
+                    }
+                    setTimeout(refresh,0);
                 }
             });
         },
@@ -1446,7 +1368,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                             }
                             break;
                         case MLabel:
-                            if (t.WavOutMode && ch==0) console.log("@label", LParam , bufferState.writtenSamples+"/"+t.sampleRate );
+                            if (t.WavOutMode && ch==0) console.log("@label", LParam , t.writtenSamples+"/"+t.sampleRate );
                             t.MPointC[ch]+=2;
                             break;
                         case MSlur:
