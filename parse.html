@@ -53,6 +53,14 @@ requirejs(["M2Parser","SEnv","wavWriter","FS"],function (P,SEnv,ww,FS) {
             dst.download();
         });
     };
+    window.mzo=function () {
+        var mzo=P.parseMML(document.querySelector("#mml").value);
+        var fn=document.querySelector("#samples").value || "test";
+        var dst=FS.get("/ram/"+fn+".mzo");
+        dst.bytes(new Uint8Array(mzo).buffer);
+        dst.download();
+
+    };
     setInterval(function () {
         document.querySelector("#perf").innerText=Math.floor(senv.performance.writeRate*10)/10;
     },1000);
@@ -86,10 +94,11 @@ function selectSample(name) {
 <div><select id="samples">
 </select></div>
 <div><textarea id="mml" rows=20 cols=80>
-</textarea>
+</textarea><br/>
 <button onclick="play()">Play</button>
 <button onclick="stop()">Stop</button>
 <button onclick="wav()">Download wav</button>
+<button onclick="mzo()">Download mzo</button>
 <button onclick="playAsBuffer()">Play(Lightweight)</button>
 </div>
 <div>performance: x<span id="perf"></span></div>
