@@ -8,14 +8,42 @@ requirejs(["M2Parser","SEnv","wavWriter","FS"],function (P,SEnv,ww,FS) {
     FS.mount("/ram/",FS.LSFS.ramDisk());
     window.senv=new SEnv({useScriptProcessor:false,useFast:true});
     window.play=function () {
+        window.stopBufSrc();
         var mzo=P.parseMML(document.querySelector("#mml").value);
         window.senv.load(mzo);
         window.senv.Start();
     };
+    window.stopBufSrc=function () {
+        if (window.bufSrc) window.bufSrc.stop();
+        delete window.bufSrc;
+    },
+    window.playAsBuffer=function () {
+        window.stopBufSrc();
+        var mzo=P.parseMML(document.querySelector("#mml").value);
+        var t=window.senv;
+        t.load(mzo);
+        t.toAudioBuffer().then(function (data) {
+            console.log("AudioData",data);
+            var source = t.context.createBufferSource();
+            source.buffer = data.decodedData;
+            source.connect(t.context.destination);
+            if (data.loopStart!=null) {
+                source.loop=true;
+                source.loopStart=data.loopStart;
+                source.loopEnd=data.decodedData.duration;
+            }
+            console.log("AudioData src",source.loopStart, source.loopEnd);
+            source.start = source.start || source.noteOn;
+            source.start(0);
+            window.bufSrc=source;
+        });
+    };
     window.stop=function () {
+        window.stopBufSrc();
         window.senv.Stop();
     };
     window.wav=function wav() {
+        window.stopBufSrc();
         senv.wavOut().then(function (raw) {
             var wavf=ww(raw, senv.sampleRate).write();
             var fn=document.querySelector("#samples").value || "test";
@@ -62,6 +90,7 @@ function selectSample(name) {
 <button onclick="play()">Play</button>
 <button onclick="stop()">Stop</button>
 <button onclick="wav()">Download wav</button>
+<button onclick="playAsBuffer()">Play(Lightweight)</button>
 </div>
 <div>performance: x<span id="perf"></span></div>
 <script class="mml" type="text/mml" data-name="Fanfare">

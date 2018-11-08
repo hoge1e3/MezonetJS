@@ -393,6 +393,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
 
             t.WriteMaxLen = 20000;
             t.WavOutMode = False;
+            t.label2Time=[];
             t.WFilename = '';
             /* {$ifdef ForM2}
             t.WavOutObj=nil;
@@ -649,18 +650,21 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             var allbuf=[];
             t.writtenSamples=0;
             t.WavOutMode=true;
+            t.label2Time=[];
+            t.loopStart=null;
             var sec=-1;
+            var efficiency=t.wavOutSpeed||10;
             return new Promise(function (succ) {
                 setTimeout(refresh,0);
                 function refresh() {
-                    var ti=new Date().getTime()+1;
+                    var ti=new Date().getTime()+efficiency;
                     while (new Date().getTime()<=ti) {
                         for (var i=0;i<grid;i++) allbuf.push(0);
                         t.refreshPSG(allbuf,allbuf.length-grid,grid);
                         t.writtenSamples+=grid;
                         var ss=Math.floor(t.writtenSamples/t.sampleRate);
                         if (ss>sec) {
-                            console.log("Written ",ss,"sec");
+                            //console.log("Written ",ss,"sec");
                             sec=ss;
                         }
                         //allbuf=allbuf.concat(buf.slice());
@@ -672,6 +676,18 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     }
                     setTimeout(refresh,0);
                 }
+            });
+        },
+        toAudioBuffer: function (t) {
+            return t.wavOut().then(function (arysrc) {
+                var buffer = t.context.createBuffer(1, arysrc.length, t.sampleRate);
+                var ary = buffer.getChannelData(0);
+                for (var i = 0; i < ary.length; i++) {
+                     ary[i] = arysrc[i];
+                }
+                var res={decodedData: buffer};
+                if (t.loopStart) res.loopStart=t.loopStart[0]/t.loopStart[1];
+                return res;
             });
         },
         //procedure TEnveloper.SelWav (ch,n:Integer);
@@ -867,7 +883,15 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         case MJmp:
                             {
                                 if (t.WavOutMode) {
-                                    if (ch==0) console.log("@jump", t.MPointC[ch] + array2Int(t.MPoint[ch], pc+1) );
+                                    if (ch==0) {
+                                        var dstLabelPos=t.MPointC[ch] + array2Int(t.MPoint[ch], pc+1);
+                                        var dstLabelNum=t.MPoint[ch][dstLabelPos+1];
+                                        var dstTime=t.label2Time[dstLabelNum-0];
+                                        if (dstTime && dstTime[0]<t.writtenSamples) {
+                                            t.loopStart=dstTime;
+                                            console.log("@jump", dstLabelNum, "ofs=",t.loopStart );
+                                        }
+                                    }
                                     t.MPointC[ch] += 5;
                                 } else {
                                     /*console.log("old mpointc ",t.MPointC[ch],LParam,HParam,t.MPoint[ch][pc + 3],t.MPoint[ch][pc + 4],LParam << 0 +
@@ -890,7 +914,10 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                             }
                             break;
                         case MLabel:
-                            if (t.WavOutMode && ch==0) console.log("@label", LParam , t.MPointC[ch] , t.writtenSamples+"/"+t.sampleRate );
+                            if (t.WavOutMode && ch==0) {
+                                t.label2Time[LParam]=[t.writtenSamples,t.sampleRate];
+                                console.log("@label", LParam , t.MPointC[ch] , t.writtenSamples+"/"+t.sampleRate );
+                            }
                             t.MPointC[ch]+=2;
                             break;
                         case MSlur:
