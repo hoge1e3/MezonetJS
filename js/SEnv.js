@@ -306,13 +306,15 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
         },
 
-        $: function(t,options) {
+        $: function(t,context,options) {
             var i, j; //:Integer;
             options=options||{};
             t.useScriptProcessor=options.useScriptProcessor;
             t.useFast=options.useFast;
             t.resolution=options.resolution||120;
-            t.initNode({});
+            t.context=context;
+            t.sampleRate = t.context.sampleRate;
+            //t.initNode({});
             //t.WavPlaying=false;
             // inherited Create (Handle);
             t.Delay = 2000;
@@ -403,11 +405,10 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.performance={writtenSamples:0, elapsedTime:0};
             t.loadWDT();
         },
-        initNode: function (t,options) {
+        /*initNode: function (t,options) {
             var channel=1;
             options=options||{};
             for (var i in options) this[i]=options[i];
-            this.streamLength= this.streamLength || 4096;
             if (typeof (webkitAudioContext) !== "undefined") {
                 this.context = new webkitAudioContext();
             } else if (typeof (AudioContext) !== "undefined") {
@@ -415,13 +416,18 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             this.sampleRate = this.context.sampleRate;
             this.buf = this.context.createBuffer(channel, wdataSize, this.sampleRate);
-
+        },*/
+        getBuffer: function (t) {
+            var channel=1;
+            if (this.buf) return this.buf;
+            this.buf = this.context.createBuffer(channel, wdataSize, this.sampleRate);
+            return this.buf;
         },
         playNode: function (t) {
             if (this.isSrcPlaying) return;
             var source = this.context.createBufferSource();
             // AudioBufferSourceNodeにバッファを設定する
-            source.buffer = this.buf;
+            source.buffer = this.getBuffer();
             // AudioBufferSourceNodeを出力先に接続すると音声が聞こえるようになる
             if (typeof source.noteOn=="function") {
                 source.noteOn(0);
@@ -438,7 +444,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         startRefreshLoop: function (t) {
             if (t.refreshTimer!=null) return;
             var grid=t.resolution;
-            var data=t.buf.getChannelData(0);
+            var data=t.getBuffer().getChannelData(0);
             var WriteAd=0;
             for (var i=0;i<wdataSize;i+=grid) {
                 t.refreshPSG(data,i,grid);
@@ -466,25 +472,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             if (!this.isSrcPlaying) return;
             this.bufSrc.stop();
             this.isSrcPlaying = false;
-        },
-        initNodeSCR: function (options) {
-            var channel=1;
-            options=options||{};
-            for (var i in options) this[i]=options[i];
-            this.streamLength= this.streamLength || 4096;
-            if (typeof (webkitAudioContext) !== "undefined") {
-                this.context = new webkitAudioContext();
-            } else if (typeof (AudioContext) !== "undefined") {
-                this.context = new AudioContext();
-            }
-            this.sampleRate = this.context.sampleRate;
-            var bufSrc = this.context.createBufferSource();
-            this.node = this.context.createScriptProcessor(this.streamLength , 1, channel);
-            if (typeof bufSrc.noteOn=="function") {
-                bufSrc.noteOn(0);
-                bufSrc.connect(this.node);
-            }
-            this.isNodeConnected = false;
         },
         //PutEnv (c,t,v,sp:Word;s:PChar);
         /*PutEnv: function(t, c, time, v, sp, s) {

@@ -6,7 +6,13 @@
 requirejs.config(reqConf);
 requirejs(["M2Parser","SEnv","wavWriter","FS"],function (P,SEnv,ww,FS) {
     FS.mount("/ram/",FS.LSFS.ramDisk());
-    window.senv=new SEnv({useScriptProcessor:false,useFast:true});
+    var context;
+    if (typeof (webkitAudioContext) !== "undefined") {
+        context = new webkitAudioContext();
+    } else if (typeof (AudioContext) !== "undefined") {
+        context = new AudioContext();
+    }
+    window.senv=new SEnv(context);
     window.play=function () {
         window.stopBufSrc();
         var mzo=P.parseMML(document.querySelector("#mml").value);
