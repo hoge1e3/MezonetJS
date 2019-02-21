@@ -4,7 +4,7 @@
 <script src="js/reqConf.js"></script>
 <script>
 requirejs.config(reqConf);
-requirejs(["M2Parser","SEnv","wavWriter","FS"],function (P,SEnv,ww,FS) {
+requirejs(["M2Parser","SEnv","wavWriter","FS","dragMZO"],function (P,SEnv,ww,FS,dm) {
     FS.mount("/ram/",FS.LSFS.ramDisk());
     var context;
     if (typeof (webkitAudioContext) !== "undefined") {
@@ -24,25 +24,27 @@ requirejs(["M2Parser","SEnv","wavWriter","FS"],function (P,SEnv,ww,FS) {
         delete window.bufSrc;
     },
     window.playAsBuffer=function () {
-        window.stopBufSrc();
         var mzo=P.parseMML(document.querySelector("#mml").value);
         var t=window.senv;
         t.load(mzo);
-        t.toAudioBuffer().then(function (data) {
-            console.log("AudioData",data);
-            var source = t.context.createBufferSource();
-            source.buffer = data.decodedData;
-            source.connect(t.context.destination);
-            if (data.loopStart!=null) {
-                source.loop=true;
-                source.loopStart=data.loopStart;
-                source.loopEnd=data.decodedData.duration;
-            }
-            console.log("AudioData src",source.loopStart, source.loopEnd);
-            source.start = source.start || source.noteOn;
-            source.start(0);
-            window.bufSrc=source;
-        });
+        t.toAudioBuffer().then(window.playBuffer);
+    };
+    window.playBuffer=function (data) {
+        window.stopBufSrc();
+        var t=window.senv;
+        console.log("AudioData",data);
+        var source = t.context.createBufferSource();
+        source.buffer = data.decodedData;
+        source.connect(t.context.destination);
+        if (data.loopStart!=null) {
+            source.loop=true;
+            source.loopStart=data.loopStart;
+            source.loopEnd=data.decodedData.duration;
+        }
+        console.log("AudioData src",source.loopStart, source.loopEnd);
+        source.start = source.start || source.noteOn;
+        source.start(0);
+        window.bufSrc=source;
     };
     window.stop=function () {
         window.stopBufSrc();

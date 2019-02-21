@@ -18,6 +18,7 @@ var reqConf={
                 FS:1
             },
             test:1,
+            dragMZO: 1,
             SEnv: 1,
             M2Parser:1,
             wavWriter:1,
