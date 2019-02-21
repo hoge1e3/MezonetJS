@@ -103,13 +103,13 @@ function selectSample(name) {
 </select></div>
 <div><textarea id="mml" rows=20 cols=80>
 </textarea><br/>
-<button onclick="play()">Play</button>
+<button onclick="playAsBuffer()">Play</button>
+<!--button onclick="play()">Play(HeaviWeight)</button-->
 <button onclick="stop()">Stop</button>
 <button onclick="wav()">Download wav</button>
 <button onclick="mzo()">Download mzo</button>
-<button onclick="playAsBuffer()">Play(Lightweight)</button>
 </div>
-<div>performance: x<span id="perf"></span></div>
+<div style="display:none;">performance: x<span id="perf"></span></div>
 <script class="mml" type="text/mml" data-name="Fanfare">
 1[l16cdeg4]
 2[l16efg>c4]
