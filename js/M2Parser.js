@@ -94,7 +94,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
     var rep0=tokenizer.rep0;
     //var singleTokens="[](){},_z";
     tokenizer.def({
-        tokens: [rep0(or("-","&",";","[","]","(",")","{","}","_","z",",",
+        tokens: [rep0(or("-","&",/*";",*/"[","]","(",")","{","}","_","z",",",
         "LWait","SoundEl","Num","Periods","@por","@pcm","StrOption",
         "SingleOption","LengthOption","OctShift","Value","String"
         )),/^\s*/,
@@ -445,6 +445,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
     }
     //     var r=tokenizer.get("tokens").parseStr("1[ @com\"hoge\" c2def fg<fedc ]");
     function parseMML(mml) {
+        mml+="\n";
         console.log("Input mml",mml);
         var r=tokenizer.get("tokens").parseStr(mml);
         if (!r.success) throw new Error("Syntax error(token) at "+r.src.maxRow+":"+r.src.maxCol);

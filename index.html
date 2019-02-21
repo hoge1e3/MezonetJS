@@ -24,10 +24,15 @@ requirejs(["M2Parser","SEnv","wavWriter","FS","dragMZO"],function (P,SEnv,ww,FS,
         delete window.bufSrc;
     },
     window.playAsBuffer=function () {
-        var mzo=P.parseMML(document.querySelector("#mml").value);
-        var t=window.senv;
-        t.load(mzo);
-        t.toAudioBuffer().then(window.playBuffer);
+        try {
+            var mzo=P.parseMML(document.querySelector("#mml").value);
+            var t=window.senv;
+            t.load(mzo);
+            t.toAudioBuffer().then(window.playBuffer);
+        } catch(e) {
+            console.log(e);
+            alert(e);
+        }
     };
     window.playBuffer=function (data) {
         window.stopBufSrc();
