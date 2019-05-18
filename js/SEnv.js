@@ -344,8 +344,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.PorStart=[];
             t.PorEnd=[];
             t.PorLen=[];
-            //t.nextPokeElemIdx = [];
-            //t.nextPeekElemIdx = [];
             t.soundMode = [];
             t.CurWav=[];
             t.Oct=[];
@@ -376,13 +374,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 t.LfoD[i] = 0;
                 t.LfoDC[i] = 0;
                 t.Oct[i] = 4;
-                //t.nextPokeElemIdx[i] = 0;
-                //t.nextPeekElemIdx[i] = 0;
                 t.soundMode[i] = False;
             }
-            /*for i=0 to Ses-1 ) {
-                 SeLen[i]=0;
-             end;*/
             t.Fading = FadeMax;
             t.timeLag = 2000;
 
@@ -455,15 +448,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             this.bufSrc.stop();
             this.isSrcPlaying = false;
         },
-        //PutEnv (c,t,v,sp:Word;s:PChar);
-        /*PutEnv: function(t, c, time, v, sp, s) {
-            t.Sound[c * 2] = time & 255;
-            t.Sound[c * 2 + 1] = div(time, 256);
-            t.EVol[c] = v;
-            t.ESpeed[c] = sp;
-            t.ECount[c] = 0;
-            t.EShape[c] = s;
-        },*/
         Play1Sound: function(t, c, n, iss) {
             var TP; //:Integer;
             if (t.soundMode[c]) return; // ) return;
