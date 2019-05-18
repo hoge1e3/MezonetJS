@@ -1,3 +1,4 @@
+/* global requirejs */
 define("SEnv", ["Klass", "assert"], function(Klass, assert) {
     //--- Also in M2Parser
     var Ses = 10,
@@ -186,6 +187,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         load:function (t,d) {
             var ver=readLong(d);
             var chs=readByte(d);
+            var chdatas;
             t.MPoint=chdatas=[];
             for (var i=0;i<chs;i++) {
                 var chdata=[];
@@ -223,20 +225,20 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             oReq.open("GET", url, true);
             oReq.responseType = "arraybuffer";
             oReq.onload = function (oEvent) {
-                var arrayBuffer = oReq.response;
+                var arrayBuffer = oReq.response,i,j;
                 if (arrayBuffer) {
                     var b = new Uint8Array(arrayBuffer);
                     console.log("Loading wdt",b.length);
                     //WaveDat
                     var idx=0;
-                    for (var i = 0; i < 96; i++) {//WvC
-                        for (var j=0;j<32;j++) {
+                    for (i = 0; i < 96; i++) {//WvC
+                        for (j=0;j<32;j++) {
                             t.WaveDat[i][j]=b[idx++];
                         }
                     }
                     //EnvDat
-                    for (var i=0 ;i<16;i++) {//Envs
-                        for (var j=0;j<32;j++) {
+                    for (i=0 ;i<16;i++) {//Envs
+                        for (j=0;j<32;j++) {
                             t.EnvDat[i][j]=b[idx++];
                         }
                     }
@@ -261,16 +263,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     break;
             }
         },
-        // all interger
-        /*setSoundTime: function(t, ch, typ, val, time) {
-            var e; //:^TSoundElem;
-            t.soundMode[ch] = True; // TODO: ほんとはまずい(t が遠い未来のばあい）
-            e = t.sndElems[ch][t.nextPokeElemIdx[ch]];
-            e.time = time;
-            e.typ = typ;
-            e.val = val;
-            t.nextPokeElemIdx[ch] = (t.nextPokeElemIdx[ch] + 1) % sndElemCount;
-        },*/
         InitSin: function(t) {
             var i; //:Integer;
             for (i = 0; i < sinMax; i++) {
@@ -407,18 +399,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.performance={writtenSamples:0, elapsedTime:0};
             t.loadWDT();
         },
-        /*initNode: function (t,options) {
-            var channel=1;
-            options=options||{};
-            for (var i in options) this[i]=options[i];
-            if (typeof (webkitAudioContext) !== "undefined") {
-                this.context = new webkitAudioContext();
-            } else if (typeof (AudioContext) !== "undefined") {
-                this.context = new AudioContext();
-            }
-            this.sampleRate = this.context.sampleRate;
-            this.buf = this.context.createBuffer(channel, wdataSize, this.sampleRate);
-        },*/
         getBuffer: function (t) {
             var channel=1;
             if (this.buf) return this.buf;
@@ -484,7 +464,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.ECount[c] = 0;
             t.EShape[c] = s;
         },*/
-        //procedure TEnveloper.Play1Sound (c,n:Word;iss:Boolean);
         Play1Sound: function(t, c, n, iss) {
             var TP; //:Integer;
             if (t.soundMode[c]) return; // ) return;
@@ -513,7 +492,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         },
         //    procedure TEnveloper.Play1Por (c,f,t:Word;iss:Boolean);
         Play1Por: function (t,c,from,to,iss) {
-             var TP=0//:Intege;
+             var TP=0;
              if ((c<0)  ||  (c>=Chs)  ||  (to<0)  ||  (to>95) ||
                 (from<0)  ||  (from>95) ) return;
              t.Resting[c]=False;
@@ -525,16 +504,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
              if  (!iss) t.ECount[c]=0;
 
         },
-        //procedure TEnveloper.PlayMML (c:Word;s:PChar);
-        /*PlayMML: function(t, c, s) { // s array of compiled mml (bytearray)
-            if ((c < 0) || (c >= Chs)) return; // ) return;
-            t.MPoint[c] = s;
-            t.MPointC[c] = 0;
-            t.PlayState[c] = psPlay;
-            t.MCount[c] = t.SeqTime;
-            //t.LoopCount = Loops + 1;
-        },*/
-        //procedure TEnveloper.StopMML (c:Integer);
         StopMML: function(t, c) {
             if ((c < 0) || (c >= Chs)) return; // ) return;
             //MPoint[c]=nil;
@@ -551,11 +520,13 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             return true;
         },
         handleAllState: function (t) {
-            var allWait=true,allStop=true;
-            for(var i=0;i<Chs;i++) {
+            var allWait=true,allStop=true,i;
+            for(i=0;i<Chs;i++) {
                 switch (t.PlayState[i]) {
                 case psPlay:
                     allWait=false;
+                    allStop=false;
+                    break;
                 case psWait:
                     allStop=false;
                     break;
@@ -570,7 +541,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             // S,P      F       F
             // P,W,S    F       F
             if (allWait && !allStop) {
-                for(var i=0;i<Chs;i++) {
+                for(i=0;i<Chs;i++) {
                     t.RestartMML(i);
                 }
             }
@@ -584,7 +555,6 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             return true;
         },
-        //procedure TEnveloper.RestartMML (c:Integer);
         RestartMML: function(t, c) {
             if ((c < 0) || (c >= Chs)) return;
             if (t.PlayState[c] == psWait) {
@@ -739,16 +709,13 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
 
             EnvFlag = 0;
             LfoInc = True;
-            cnt++; //inc(cnt);
+            cnt++;
 
             var mcountK=t.sampleRate / 22050;
             var tempoK=44100 / t.sampleRate ;
-            //var alstp=false;
             var startTime=new Date().getTime();
-            //var startSamples=bufferState.writtenSamples;
-            //console.log(bufferState.WriteAd, WriteMax);
             if (t.allStopped()) {
-                for (var i=WriteAd; i<=WriteAd+length; i++) {
+                for (i=WriteAd; i<=WriteAd+length; i++) {
                     data[i]=0;
                 }
                 return;
@@ -776,11 +743,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 vv[ch]=v;
                 if (t.ECount[ch] + t.ESpeed[ch]*(length/2) < 65536 ) t.ECount[ch] += t.ESpeed[ch]*(length/2);
 
-                //####MMLProc (ch);
                 JmpSafe = 0;
-                //dec (MCount[ch]);
-
-                //if (ch==0) console.log("ch",ch,"Code",t.MCount[ch],t.SeqTime);
 
                 while (t.MCount[ch] <= SeqTime) {
                     //if (lpchk++>1000) throw new Error("Mugen2");
@@ -978,9 +941,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                             t.StopMML(ch); //MPoint[ch]=nil;
                             break;
                         default:
-                            throw new Error("Invalid opcode" + code); //ShowMessage ('???'+IntToSTr(Byte(MPoint[ch]^)));
                             t.StopMML(ch);
-                            t.MPointC[ch] += 1;
+                            throw new Error("Invalid opcode" + code); //ShowMessage ('???'+IntToSTr(Byte(MPoint[ch]^)));
+                            //t.MPointC[ch] += 1;
                     }
                 }
                 // End Of MMLProc
@@ -992,7 +955,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
             for (ch = 0; ch < Chs; ch++) {
                 if (t.PlayState[ch] != psPlay) continue;
-                for (var ad=WriteAd; ad<WriteAd+length; ad++) {
+                for (ad=WriteAd; ad<WriteAd+length; ad++) {
                     //if (lpchk++>100000) throw new Error("Mugen3 "+WriteAd+"  "+length);
 
                     LfoInc = !LfoInc;
@@ -1065,17 +1028,18 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         }// of refreshPSG
     }); // of Klass.define
     var undefs={};
+    function replf(_,name) {
+        //console.log(name);
+        if (!defs.$fields[name]) {
+            if (undefs[name]==null) undefs[name]=1;
+            //console.error("Undefined ",name);
+        }
+    }
     for(var k in defs) {
         var fldreg=/\bt\s*\.\s*([a-zA-Z0-9]+)\b/g;
         if (typeof defs[k]==="function") {
             var src=defs[k]+"";
-            var r=src.replace(fldreg, function (_,name) {
-                //console.log(name);
-                if (!defs.$fields[name]) {
-                    if (undefs[name]==null) undefs[name]=1;
-                    //console.error("Undefined ",name);
-                }
-            });
+            var r=src.replace(fldreg, replf);
             undefs[k]=0;
         }
     }
