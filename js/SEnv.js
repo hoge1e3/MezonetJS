@@ -351,7 +351,9 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.Slur=[];
             t.Sync=[];
             t.LfoV=[];t.LfoA=[];t.LfoC=[];t.LfoD=[];t.LfoDC=[];t.LfoSync=[];
+            t.channels=[];
             for (i = 0; i < Chs; i++) {
+                t.channels.push({});
                 t.LfoV[i]=0;t.LfoA[i]=0;t.LfoC[i]=0;t.LfoD[i]=0;t.LfoDC[i]=0;t.LfoSync[i]=0;
                 t.Slur[i]=t.Sync[i]=0;
                 t.PorStart[i]=t.PorEnd[i]=t.PorLen[i]=0;
