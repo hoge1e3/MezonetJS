@@ -198,6 +198,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 for (var j=0;j<len;j++) {
                     chdata.push(readByte(d));
                 }
+                // IT should be add
+                // t.channels[i].MPoint=chdata;
             }
             function readByte(a) {
                 if (a.length==0) throw new Error("Out of data");

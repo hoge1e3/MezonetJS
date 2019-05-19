@@ -19,7 +19,8 @@ var reqConf={
             },
             test:1,
             dragMZO: 1,
-            SEnv: 1,
+            SEnv: "SEnv-old",
+            "SEnv-arrayOpt": "SEnv",
             M2Parser:1,
             wavWriter:1,
             "Tones.wdt":1

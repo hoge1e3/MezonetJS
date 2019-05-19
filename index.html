@@ -62,6 +62,8 @@ requirejs(["M2Parser","SEnv","wavWriter","FS","dragMZO"],function (P,SEnv,ww,FS,
     };
     window.wav=function wav() {
         window.stopBufSrc();
+        var mzo=P.parseMML(document.querySelector("#mml").value);
+        senv.load(mzo);
         senv.wavOut().then(function (raw) {
             var wavf=ww(raw, senv.sampleRate).write();
             var fn=document.querySelector("#samples").value || "test";
