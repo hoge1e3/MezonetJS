@@ -599,12 +599,15 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.WavOutMode=true;
             t.label2Time=[];
             t.loopStart=null;
+            t.loopStartFrac=null;
             t.PC2Time=[];// only ch:0
             var sec=-1;
             var efficiency=t.wavOutSpeed||10;
+            var setT=0;
             return new Promise(function (succ) {
                 setTimeout(refresh,0);
                 function refresh() {
+                    setT++;
                     var ti=new Date().getTime()+efficiency;
                     while (new Date().getTime()<=ti) {
                         for (var i=0;i<grid;i++) allbuf.push(0);
@@ -619,6 +622,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         if (t.allStopped()) {
                             t.WavOutMode=false;
                             succ(allbuf);
+                            console.log("setT",setT);
                             return;
                         }
                     }
@@ -628,15 +632,21 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         },
         toAudioBuffer: function (t) {
             return t.wavOut().then(function (arysrc) {
-                var buffer = t.context.createBuffer(1, arysrc.length, t.sampleRate);
-                var ary = buffer.getChannelData(0);
-                for (var i = 0; i < ary.length; i++) {
-                     ary[i] = arysrc[i];
-                }
-                var res={decodedData: buffer};
-                if (t.loopStart) res.loopStart=t.loopStart[0]/t.loopStart[1];
-                return res;
+                return t.wavToAudioBuffer(arysrc);
             });
+        },
+        wavToAudioBuffer: function (t,arysrc, loopStartFrac) {
+            var buffer = t.context.createBuffer(1, arysrc.length, t.sampleRate);
+            var ary = buffer.getChannelData(0);
+            for (var i = 0; i < ary.length; i++) {
+                 ary[i] = arysrc[i];
+            }
+            var res={decodedData: buffer};
+            loopStartFrac=loopStartFrac||t.loopStartFrac;
+            if (loopStartFrac) {
+                res.loopStart=loopStartFrac[0]/loopStartFrac[1];
+            }
+            return res;
         },
         //procedure TEnveloper.SelWav (ch,n:Integer);
         SelWav: function(t, ch, n) {
@@ -830,8 +840,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                         //var dstLabelNum=t.MPoint[ch][dstLabelPos+1];
                                         var dstTime=t.PC2Time[dstLabelPos];// t.label2Time[dstLabelNum-0];
                                         if (typeof dstTime=="number" && dstTime<t.writtenSamples) {
-                                            t.loopStart=[dstTime, t.sampleRate];
-                                            console.log("@jump", "ofs=",t.loopStart );
+                                            t.loopStartFrac=[dstTime, t.sampleRate];
+                                            console.log("@jump", "ofs=",t.loopStartFrac );
                                         }
                                     }
                                     t.MPointC[ch] += 5;

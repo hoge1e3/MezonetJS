@@ -15,15 +15,24 @@ var reqConf={
 
             },
             lib: {
-                FS:1
+                FS:1,
+                WorkerServiceB: 1,
+                WorkerServiceW: 1,
+                WorkerFactory:1,
+                root:1,
+                promise:1
             },
             test:1,
             dragMZO: 1,
             SEnv: "SEnv-old",
             "SEnv-arrayOpt": "SEnv",
+            SEnvWorker:1,
+            SEnvClient:1,
+            //SEnv: 1,
+            //"SEnv-arrayOpt": 1,
             M2Parser:1,
             wavWriter:1,
-            "Tones.wdt":1
+            "Tones.wdt":1,
         }
     }
 };
@@ -38,6 +47,15 @@ var reqConf={
                 var modName=v===1?k:v;
                 reqConf.paths[modName]=(path+"/"+k).replace(/^\//,"");
             }
+        }
+    }
+    if (location.href.match(/localhost/)) {
+        if (typeof importScripts!=="undefiend") {
+            reqConf.urlArgs="WWWWW"+Math.random();
+
+        } else {
+            reqConf.urlArgs="BBBBBB"+Math.random();
+
         }
     }
     genPaths(reqConf.revpaths,"");

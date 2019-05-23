@@ -45,7 +45,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
         FadeMax = 256,
 
         div = function(x, y) {
-            return Math.trunc(chkn(x,"x") / chkn(y,"y") );
+            return Math.trunc(x/y);
+            //return Math.trunc(chkn(x,"x") / chkn(y,"y") );
         },
         chkn = function (x,mesg) {
             if (x!==x) throw new Error(mesg+": Not a number!");
@@ -217,6 +218,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
         },
         loadWDT: function (t,url) {
+            try {
+                console.log("LOading wdt...?");
             if (!url) {
                 return requirejs(["Tones.wdt"],function (u) {
                     t.loadWDT(u);
@@ -247,6 +250,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 }
             };
             oReq.send(null);
+            } catch (e) {console.log("LOADWDTFAIL",e);}
         },
         getPlayPos: function () {
             var ti=this.context.currentTime- this. playStartTime;
@@ -604,12 +608,15 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             t.WavOutMode=true;
             t.label2Time=[];
             t.loopStart=null;
+            t.loopStartFrac=null;
             t.PC2Time=[];// only ch:0
             var sec=-1;
             var efficiency=t.wavOutSpeed||10;
+            var setT=0;
             return new Promise(function (succ) {
                 setTimeout(refresh,0);
                 function refresh() {
+                    setT++;
                     var ti=new Date().getTime()+efficiency;
                     while (new Date().getTime()<=ti) {
                         for (var i=0;i<grid;i++) allbuf.push(0);
@@ -624,6 +631,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         if (t.allStopped()) {
                             t.WavOutMode=false;
                             succ(allbuf);
+                            console.log("setT",setT);
                             return;
                         }
                     }
@@ -639,7 +647,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                      ary[i] = arysrc[i];
                 }
                 var res={decodedData: buffer};
-                if (t.loopStart) res.loopStart=t.loopStart[0]/t.loopStart[1];
+                if (t.loopStartFrac) res.loopStart=t.loopStartFrac[0]/t.loopStartFrac[1];
                 return res;
             });
         },
@@ -837,8 +845,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                                         //var dstLabelNum=chn.MPoint[dstLabelPos+1];
                                         var dstTime=t.PC2Time[dstLabelPos];// t.label2Time[dstLabelNum-0];
                                         if (typeof dstTime=="number" && dstTime<t.writtenSamples) {
-                                            t.loopStart=[dstTime, t.sampleRate];
-                                            console.log("@jump", "ofs=",t.loopStart );
+                                            t.loopStartFrac=[dstTime, t.sampleRate];
+                                            console.log("@jump", "ofs=",t.loopStartFrac );
                                         }
                                     }
                                     chn.MPointC += 5;
@@ -951,6 +959,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.PlayState != psPlay) continue;
+                v=vv[ch];
+                if (v<=0) continue;
                 for (ad=WriteAd; ad<WriteAd+length; ad++) {
                     //if (lpchk++>100000) throw new Error("Mugen3 "+WriteAd+"  "+length);
 
@@ -959,47 +969,45 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     //if (EnvFlag > 1) EnvFlag = 0;
 
                     WSum = data[ad];
-                    v=vv[ch];
-                    if (v > 0) {
-                        i = chkn(chn.SccCount >>> (32 - chn.L2WL));
-                        //inext=(i+1) & ((1 << L2WL[ch])-1);
+                    i = /*chkn*/(chn.SccCount >>> (32 - chn.L2WL));
+                    //inext=(i+1) & ((1 << L2WL[ch])-1);
 
-                        //mid=(SccCount[ch] >> (24-L2WL[ch])) & 255;
+                    //mid=(SccCount[ch] >> (24-L2WL[ch])) & 255;
 
-                        // *****000 00000000 00000000 00000000
-                        //                      ***** 00000000
+                    // *****000 00000000 00000000 00000000
+                    //                      ***** 00000000
 
-                        w1 = chkn(chn.SccWave[i]);
-                        chkn(v);
-                        //w2=Byte((SccWave[ch]+inext)^) ;
+                    w1 = /*chkn*/(chn.SccWave[i]);
+                    //chkn(v);
+                    //w2=Byte((SccWave[ch]+inext)^) ;
 
-                        /*WSum += ((
-                            div((w1 * v), (16 * 128))
-                        ) - div(v, 16))/32768;*/
-                        WSum += (
-                            (w1 * v)/ 0x4000000
-                        ) - (v / 0x80000);
+                    /*WSum += ((
+                        div((w1 * v), (16 * 128))
+                    ) - div(v, 16))/32768;*/
+                    WSum += (
+                        (w1 * v)/ 0x4000000
+                    ) - (v / 0x80000);
 
 
-                        if (!chn.Sync) {
-                            (chn.SccCount += chn.Steps);
-                        } else {
-                            if ((chn.SccCount < -chn.Steps * 2) || (chn.SccCount >= 0))(chn.SccCount += chn.Steps);
-                        }
-                        if ((chn.LfoV != 0)) {
-                            if ((chn.LfoDC > 0)) {
-                                (chn.LfoDC -= t.Tempo);
-                            } else {
-                                (chn.SccCount +=
-                                    sinT[chn.LfoC >>> (16 + sinMax_s)] *
-                                    div(chn.Steps, 512) *
-                                    div(chn.LfoA, 256)
-                                );
-                                if (LfoInc) chn.LfoC += chn.LfoV;
-                            }
-
-                        }
+                    if (!chn.Sync) {
+                        (chn.SccCount += chn.Steps);
+                    } else {
+                        if ((chn.SccCount < -chn.Steps * 2) || (chn.SccCount >= 0))(chn.SccCount += chn.Steps);
                     }
+                    if ((chn.LfoV != 0)) {
+                        if ((chn.LfoDC > 0)) {
+                            (chn.LfoDC -= t.Tempo);
+                        } else {
+                            (chn.SccCount +=
+                                sinT[chn.LfoC >>> (16 + sinMax_s)] *
+                                div(chn.Steps, 512) *
+                                div(chn.LfoA, 256)
+                            );
+                            if (LfoInc) chn.LfoC += chn.LfoV;
+                        }
+
+                    }
+
 
                     if (WSum > 1) WSum = 1; //16bit
                     if (WSum < -1) WSum = -1; //16bit

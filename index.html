@@ -9,7 +9,13 @@
 <script src="js/reqConf.js"></script>
 <script>
 requirejs.config(reqConf);
-requirejs(["M2Parser","SEnv","wavWriter","FS","dragMZO"],function (P,SEnv,ww,FS,dm) {
+requirejs(["M2Parser","SEnv","wavWriter","FS","dragMZO","SEnvClient"],
+function (P,SEnv,ww,FS,dm,SEnvC) {
+    /*var w=WF.create("SEnvWorker");//var w=new Worker("js/SEnvWorker.js");
+    var ws=new WS.Wrapper(w);
+    ws.run("test").then(function (r) {
+        console.log("WS",r);
+    });*/
     FS.mount("/ram/",FS.LSFS.ramDisk());
     var context;
     if (typeof (webkitAudioContext) !== "undefined") {
@@ -17,7 +23,8 @@ requirejs(["M2Parser","SEnv","wavWriter","FS","dragMZO"],function (P,SEnv,ww,FS,
     } else if (typeof (AudioContext) !== "undefined") {
         context = new AudioContext();
     }
-    window.senv=new SEnv(context);
+    var senvc=new SEnvC(context);
+    window.senv=new SEnv(context,{resolution:600});
     window.play=function () {
         window.stopBufSrc();
         var mzo=P.parseMML(document.querySelector("#mml").value);
@@ -31,9 +38,10 @@ requirejs(["M2Parser","SEnv","wavWriter","FS","dragMZO"],function (P,SEnv,ww,FS,
     window.playAsBuffer=function () {
         try {
             var mzo=P.parseMML(document.querySelector("#mml").value);
-            var t=window.senv;
+            senvc.toAudioBuffer(mzo).then(window.playBuffer);
+            /*var t=window.senv;
             t.load(mzo);
-            t.toAudioBuffer().then(window.playBuffer);
+            t.toAudioBuffer().then(window.playBuffer);*/
         } catch(e) {
             console.log(e);
             alert(e);
@@ -84,6 +92,8 @@ requirejs(["M2Parser","SEnv","wavWriter","FS","dragMZO"],function (P,SEnv,ww,FS,
     setInterval(function () {
         document.querySelector("#perf").innerText=Math.floor(senv.performance.writeRate*10)/10;
     },1000);
+
+
 });
 window.onload=function () {
     var s=document.querySelectorAll(".mml");
