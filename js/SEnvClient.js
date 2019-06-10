@@ -6,9 +6,6 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         $:function (t,context) {
             t.context=context;
             t.sampleRate=t.context.sampleRate;
-            /*w.run("MezonetJS/setup",{}).then(function () {
-                console.log("MezonetJS worker setup complete");
-            });*/
         },
         toAudioBuffer: function (t,mzo) {
             return w.run("MezonetJS/wavOut",{mzo:mzo,sampleRate:t.sampleRate}).then(function (res) {

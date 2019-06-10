@@ -1,14 +1,11 @@
 /*global requirejs*/
-define(["SEnv","WorkerServiceW"],function (SEnv, WS) {
+define(["SEnv","WorkerServiceW","Tones.wdt"],function (SEnv, WS,wdt) {
     var e;
-    /*WS.serv("MezonetJS/setup",function (params) {
-        var ctx={sampleRate:params.sampleRate};
-        e=new SEnv(ctx,{wavOutSpeed:10000});
-    });*/
     WS.serv("MezonetJS/wavOut",function (params) {
         if (!e) {
             var ctx={sampleRate:params.sampleRate};
             e=new SEnv(ctx,{wavOutSpeed:10000});
+            e.loadWDT(wdt);
         }
         e.load(params.mzo);
         return e.wavOut().then(function (arysrc) {
