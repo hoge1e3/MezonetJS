@@ -33,7 +33,7 @@ var reqConf={
             //"SEnv-arrayOpt": 1,
             M2Parser:1,
             wavWriter:1,
-            almond: 1,
+            "almond.min": "almond",
             "Tones.wdt":1,
         }
     }
