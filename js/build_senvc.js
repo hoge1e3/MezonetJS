@@ -17,6 +17,7 @@
      out: function (text, sourceMapText) {
         var fs=nodeRequire("fs");
         var wsrc=fs.readFileSync("gen/MezonetWorker.js","utf8");
+        wsrc=wsrc.replace(/\r/g,"").replace(/\n\s*/g,"\n").replace(/[ \t]+/g," "); // IS that OK? replace "  hoge   "  to " hoge "
         var repl="WorkerFactory.createFromString("+JSON.stringify(wsrc)+")";
         text=text.replace(/WorkerFactory.require\("SEnvWorker"\)/,repl);
         fs.writeFileSync("gen/Mezonet.js",text);
