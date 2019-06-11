@@ -7,7 +7,7 @@
     } else if (typeof (AudioContext) !== "undefined") {
         context = new AudioContext();
     }
-    var t=new MezonetJS(context);
+    var t=new Mezonet(context);
     function load(f) {
         var reader = new FileReader();
         reader.onload = (function(theFile) {
