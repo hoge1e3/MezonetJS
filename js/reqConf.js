@@ -22,6 +22,7 @@ var reqConf={
                 root:1,
                 promise:1
             },
+            main: 1,
             test:1,
             dragMZO: 1,
             SEnv: "SEnv-old",
@@ -32,6 +33,7 @@ var reqConf={
             //"SEnv-arrayOpt": 1,
             M2Parser:1,
             wavWriter:1,
+            almond: 1,
             "Tones.wdt":1,
         }
     }
@@ -49,7 +51,7 @@ var reqConf={
             }
         }
     }
-    if (location.href.match(/localhost/)) {
+    if (typeof location!=="undefined" && location.href.match(/localhost/)) {
         if (typeof importScripts!=="undefiend") {
             reqConf.urlArgs="WWWWW"+Math.random();
 

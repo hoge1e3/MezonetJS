@@ -1,27 +1,20 @@
 /* global nodeRequire, process */
 ({
     name: 'almond',
-    include: ['SEnvClient'],
-    //insertRequire: ['SEnvClient'],
-    optimize:"none",
+    include: ['SEnvWorker'],
+    insertRequire: ['SEnvWorker'],
+    optimize:"none",//"uglify",// uglify changes function(t) ->function (e) this is not this
     baseUrl: "..",
-    wrap: {
+    /*wrap: {
         startFile: "func_head.txt",
-        endFile: "func_tail.txt"
-    },
+        endFile: "func_tailw.txt"
+    },*/
     paths: (function () {
         var conf=nodeRequire(process.cwd()+"/reqConf.js");
         return conf.conf.paths;
      })(),
      //out: 'gen/Mezonet.js',
-     out: function (text, sourceMapText) {
-        var fs=nodeRequire("fs");
-        var wsrc=fs.readFileSync("gen/MezonetWorker.js","utf8");
-        var repl="WorkerFactory.createFromString("+JSON.stringify(wsrc)+")";
-        text=text.replace(/WorkerFactory.require\("SEnvWorker"\)/,repl);
-        fs.writeFileSync("gen/Mezonet.js",text);
-        //console.log(text,"/*hoge*/");
-    },
+     out: "gen/MezonetWorker.js",
     /*shim: (function () {
         var conf=nodeRequire(process.cwd()+"/reqConf.js");
         return conf.conf.shim;

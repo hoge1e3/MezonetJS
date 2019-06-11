@@ -1,0 +1,3 @@
+(function (root, factory) {
+    root.MezonetJS = factory();
+}(this, function () {
