@@ -1,9 +1,10 @@
 /*global requirejs*/
 define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Klass) {
-    var w=new WS.Wrapper(WorkerFactory.require("SEnvWorker"));
+    var w;
     return Klass.define({
         $this:"t",
         $:function (t,context) {
+            w=w||new WS.Wrapper(WorkerFactory.require("SEnvWorker"));
             t.context=context;
             t.sampleRate=t.context.sampleRate;
         },
