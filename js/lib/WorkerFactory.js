@@ -10,12 +10,18 @@ define([],function () {
             var src=this.extractSrcFromFunction(f,startMark,endMark);
             return this.createFromString(src);
         },
+        urlFromString: function (src) {
+            return URL.createObjectURL( new Blob([src] ,{type:"text/javascript"} ));
+        },
         createFromString: function (src) {
-            var url=URL.createObjectURL( new Blob([src] ,{type:"text/javascript"} ));
+            var url=this.urlFromString(src);
             return new Worker(url);
         },
+        requireUrl: function (name) {
+            return "worker.js?main="+name;
+        },
         require: function (name) {
-            return new Worker("worker.js?main="+name);
+            return new Worker(this.requireUrl(name));
         },
         create: function (src) {
             if (typeof src==="string") {

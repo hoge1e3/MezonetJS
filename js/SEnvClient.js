@@ -1,16 +1,16 @@
 /*global requirejs*/
 define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Klass) {
-    var w;
+    var workerURL=WorkerFactory.requireUrl("SEnvWorker");
     return Klass.define({
         $this:"t",
         $:function (t,context) {
-            w=w||new WS.Wrapper(WorkerFactory.require("SEnvWorker"));
+            t.w=new WS.Wrapper(new Worker(workerURL));
             t.context=context;
             t.sampleRate=t.context.sampleRate;
         },
         toAudioBuffer: function (t,mzo) {
-            return w.run("MezonetJS/wavOut",{mzo:mzo,sampleRate:t.sampleRate}).then(function (res) {
-                console.log(res);
+            return t.w.run("MezonetJS/wavOut",{mzo:mzo,sampleRate:t.sampleRate}).then(function (res) {
+                //console.log(res);
                 return t.wavToAudioBuffer(res.arysrc, res.loopStartFrac);
             });
         },
@@ -25,6 +25,9 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 res.loopStart=loopStartFrac[0]/loopStartFrac[1];
             }
             return res;
+        },
+        terminate: function (t) {
+            t.w.terminate();
         }
     });
 });
