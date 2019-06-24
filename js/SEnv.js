@@ -1,5 +1,6 @@
 /* global requirejs */
-define("SEnv", ["Klass", "assert"], function(Klass, assert) {
+define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
+    function now(){return new Date().getTime();}
     //--- Also in M2Parser
     var Ses = 10,
         Chs = 10,
@@ -218,39 +219,42 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             }
         },
         loadWDT: function (t,url) {
-            try {
+            return new Promise(function (succ,fail) {
+            try{
                 console.log("LOading wdt...?");
-            if (!url) {
-                return requirejs(["Tones.wdt"],function (u) {
-                    t.loadWDT(u);
-                });
-            }
-            var oReq = new XMLHttpRequest();
-            oReq.open("GET", url, true);
-            oReq.responseType = "arraybuffer";
-            oReq.onload = function (oEvent) {
-                var arrayBuffer = oReq.response,i,j;
-                if (arrayBuffer) {
-                    var b = new Uint8Array(arrayBuffer);
-                    console.log("Loading wdt",b.length);
-                    //WaveDat
-                    var idx=0;
-                    for (i = 0; i < 96; i++) {//WvC
-                        for (j=0;j<32;j++) {
-                            t.WaveDat[i][j]=b[idx++];
-                        }
-                    }
-                    //EnvDat
-                    for (i=0 ;i<16;i++) {//Envs
-                        for (j=0;j<32;j++) {
-                            t.EnvDat[i][j]=b[idx++];
-                        }
-                    }
-                    console.log("Loading wdt done");
+                if (!url) {
+                    requirejs(["Tones.wdt"],function (u) {
+                        t.loadWDT(u).then(succ,fail);
+                    });
                 }
-            };
-            oReq.send(null);
-            } catch (e) {console.log("LOADWDTFAIL",e);}
+                var oReq = new XMLHttpRequest();
+                oReq.open("GET", url, true);
+                oReq.responseType = "arraybuffer";
+                oReq.onload = function (oEvent) {
+                    var arrayBuffer = oReq.response,i,j;
+                    if (arrayBuffer) {
+                        var b = new Uint8Array(arrayBuffer);
+                        console.log("Loading wdt",b.length);
+                        //WaveDat
+                        var idx=0;
+                        for (i = 0; i < 96; i++) {//WvC
+                            for (j=0;j<32;j++) {
+                                t.WaveDat[i][j]=b[idx++];
+                            }
+                        }
+                        //EnvDat
+                        for (i=0 ;i<16;i++) {//Envs
+                            for (j=0;j<32;j++) {
+                                t.EnvDat[i][j]=b[idx++];
+                            }
+                        }
+                        console.log("Loading wdt done");
+                        succ();
+                    }
+                };
+                oReq.send(null);
+            } catch(e) {fail(e);}
+            });
         },
         getPlayPos: function () {
             var ti=this.context.currentTime- this. playStartTime;
@@ -397,8 +401,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
              {$endif}*/
             t.Tempo = 120;
             t.ComStr = '';
-            t.performance={writtenSamples:0, elapsedTime:0};
-            t.loadWDT();
+            t.performance={writtenSamples:0, elapsedTime:0, timeForChProc:0, timeForWrtSmpl:0};
+            //t.loadWDT();
         },
         getBuffer: function (t) {
             var channel=1;
@@ -614,11 +618,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             var efficiency=t.wavOutSpeed||10;
             var setT=0;
             return new Promise(function (succ) {
-                setTimeout(refresh,0);
-                function refresh() {
-                    setT++;
-                    var ti=new Date().getTime()+efficiency;
-                    while (new Date().getTime()<=ti) {
+                    while (true) {
                         for (var i=0;i<grid;i++) allbuf.push(0);
                         t.refreshPSG(allbuf,allbuf.length-grid,grid);
                         t.writtenSamples+=grid;
@@ -631,12 +631,11 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                         if (t.allStopped()) {
                             t.WavOutMode=false;
                             succ(allbuf);
-                            console.log("setT",setT);
+                            //console.log("setT",setT);
+                            console.log(t.performance);
                             return;
                         }
                     }
-                    setTimeout(refresh,0);
-                }
             });
         },
         toAudioBuffer: function (t) {
@@ -723,6 +722,7 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                 return;
             }
             var vv=[],SeqTime=t.SeqTime,lpchk=0,chn;
+            var chPT=now();
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.MPoint[chn.MPointC] == nil) t.StopMML(ch);
@@ -956,6 +956,8 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
             for (var ad=WriteAd; ad<WriteAd+length; ad++) {
                 data[ad]=0;
             }
+            var wrtsT=now(),noiseWritten;
+            t.performance.timeForChProc+=wrtsT-chPT;
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.PlayState != psPlay) continue;
@@ -1012,13 +1014,17 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
                     if (WSum > 1) WSum = 1; //16bit
                     if (WSum < -1) WSum = -1; //16bit
                     data[ad]=WSum;
-                    if (ch==0) t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
+                    if (!noiseWritten) {
+                        t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
+                        noiseWritten=true;
+                    }
                     NoiseP++;
                 }//of for (var i=WriteAd; i<=WriteAd+length; i++
                 //bufferState.writtenSamples+=length;
 
 
             }// of ch loop
+            t.performance.timeForWrtSmpl+=now()-wrtsT;
             t.performance.elapsedTime+=new Date().getTime()-startTime;
             t.performance.writtenSamples+=length;
             t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
@@ -1050,109 +1056,3 @@ define("SEnv", ["Klass", "assert"], function(Klass, assert) {
     console.log(undefs);
     return TEnveloper;
 }); // of requirejs.define
-
-/*
-procedure TEnveloper.PlayKeyBd (n,WaveSel:Integer);
-var i,ch,WaveMod,WriteBytes,wdtmp:integer;
-    TP,vCenter:array [0..Chs-1] of Integer;
-    Lambda,NewLambda:Real;
-    res:MMRESULT;
-    WriteMax:integer;
-    nowt:longint;
-    AllVCenter:Integer;
-    Wf,Wt,WMid,WRes,WSum,v,NoiseP:Integer;
-    LParam,WParam:Byte;
-    JmpSafe:Integer;
-{
-     Start;
-     ch=Chs-1;
-     Play1Sound (ch,n,False);
-     EVol[ch]=127;
-     SccWave[ch]=@WaveDat[WaveSel,0];
-
-     mmt.wType=TIME_SAMPLES;
-     WaveOutGetPosition (hwo, @mmt, SizeOf(MMTIME));
-
-     Pos=mmt.Sample mod Bsize;
-     WriteAd=(Pos+Delay) mod BSize;
-     WriteMax=(Pos+BSize-1) mod BSize;
-
-     while ( WriteAd!=WriteMax ) {
-           WSum=0;//wdata2[WriteAd];
-           v=(( Byte(( EShape[ch]+(ECount[ch] >> 11) )^) )*EVol[ch]*EBaseVol[ch]);
-           if ( v>0 ) {
-                  i=SccCount[ch] >> 27;
-                  inc (WSum,(
-                            ( Byte((SccWave[ch]+i)^)*v ) div (16*128)
-                         )-v div 16
-                  );
-                  inc (SccCount[ch],Steps[ch]);
-           }
-           if ( ECount[ch]+ESpeed[ch]<65536 ) inc (ECount[ch],ESpeed[ch]);
-
-
-           //WSum=(PrevWSum+WSum) div 2;
-
-           WRes=WSum+wdata2[WriteAd];
-
-           if ( WRes>32767 ) WRes=32767;     //16bit
-           if ( WRes<-32768 ) WRes=-32768;         //16bit
-
-           wdata2[WriteAd]=WRes;
-
-           //PrevWSum=WSum;
-
-           inc (WriteAd);
-           WriteAd=WriteAd mod BSize;
-     }
-
-}
-
-procedure TEnveloper.calibration;
-var l,p,i:Integer;
-{
-     p=(Pos+timeLag+BSize) mod BSize;
-     for ( i=0 to BSize-1 ) {
-          l=i-p;
-          if ( l<-BSize div 2 ) inc(l,BSize);
-          if ( l>=BSize div 2 ) dec(l,BSize);
-          if ( ((i mod 100)<50) &&
-              (abs(l)<calibrationLen)  ) {
-                wdata2[i]=20000*(calibrationLen-abs(l)) div calibrationLen  ;
-
-          } else wdata2[i]=0;
-     }
-}
-
-end.
-MZO format
-1[c]
-       Version    Chs ch0.length   ch0 data
-000000 b0 04 00 00|0a|1b 00 00 00{64 78 65 05 6e 00 66
-000010 00 6b 00 73 00 00 00 76 00 74 00 67 78 00 24 22
-                   ch1.length   ch1 data...
-000020 56 ff ff ff}15 00 00 00 64 78 65 05 6e 00 66 00
-000030 6b 00 73 00 00 00 76 00 74 00 ff ff ff 15 00 00
-000040 00 64 78 65 05 6e 00 66 00 6b 00 73 00 00 00 76
-000050 00 74 00 ff ff ff 15 00 00 00 64 78 65 05 6e 00
-000060 66 00 6b 00 73 00 00 00 76 00 74 00 ff ff ff 15
-000070 00 00 00 64 78 65 05 6e 00 66 00 6b 00 73 00 00
-000080 00 76 00 74 00 ff ff ff 15 00 00 00 64 78 65 05
-000090 6e 00 66 00 6b 00 73 00 00 00 76 00 74 00 ff ff
-0000a0 ff 15 00 00 00 64 78 65 05 6e 00 66 00 6b 00 73
-0000b0 00 00 00 76 00 74 00 ff ff ff 15 00 00 00 64 78
-0000c0 65 05 6e 00 66 00 6b 00 73 00 00 00 76 00 74 00
-0000d0 ff ff ff 15 00 00 00 64 78 65 05 6e 00 66 00 6b
-0000e0 00 73 00 00 00 76 00 74 00 ff ff ff 15 00 00 00
-0000f0 64 78 65 05 6e 00 66 00 6b 00 73 00 00 00 76 00
-000100 74 00 ff ff ff
-000105
-
-       1b 00 00 00{64 78 65 05 6e 00 66 00 6b 00 73 00
-       00 00 76 00 74 00 67 78 00 24 22 56 ff ff ff}
-
-
-       15 00 00 00{64 78 65 05 6e 00 66 00 6b 00 73 00
-       00 00 76 00 74 00 ff ff ff}
-
-*/
