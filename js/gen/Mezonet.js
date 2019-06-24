@@ -1059,6 +1059,9 @@ define('WorkerServiceB',["promise","Klass","root"], function (_,Klass,root) {
                     });
                 });
             });
+        },
+        terminate: function (t) {
+            t.worker.terminate();
         }
     });
     var paths={};
