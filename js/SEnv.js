@@ -956,8 +956,9 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             for (var ad=WriteAd; ad<WriteAd+length; ad++) {
                 data[ad]=0;
             }
-            var wrtsT=now(),noiseWritten;
+            var wrtsT=now();
             t.performance.timeForChProc+=wrtsT-chPT;
+            var noiseWritten=false;
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.PlayState != psPlay) continue;
@@ -1016,10 +1017,10 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                     data[ad]=WSum;
                     if (!noiseWritten) {
                         t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
-                        noiseWritten=true;
                     }
                     NoiseP++;
                 }//of for (var i=WriteAd; i<=WriteAd+length; i++
+                noiseWritten=true;
                 //bufferState.writtenSamples+=length;
 
 
