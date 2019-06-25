@@ -962,59 +962,23 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 if (chn.PlayState != psPlay) continue;
                 v=vv[ch];
                 if (v<=0) continue;
-                var SccCount=chn.SccCount,Steps=chn.Steps,SccWave=chn.SccWave;
+                var SccCount=chn.SccCount,Steps=chn.Steps,SccWave=chn.SccWave,sh=(32-chn.L2WL);
                 // Proc LFO here!
                 // Sync(for PCM playback) is separeted?
                 for (ad=WriteAd; ad<WriteAd+length; ad++) {
-                    //if (lpchk++>100000) throw new Error("Mugen3 "+WriteAd+"  "+length);
-
-                    //LfoInc = !LfoInc;
-
                     WSum = data[ad];
-                    i = /*chkn*/(SccCount >>> (32 - chn.L2WL));
-
-                    // *****000 00000000 00000000 00000000
-                    //                      ***** 00000000
-
-                    w1 = /*chkn*/(SccWave[i]);
-                    //  w1*v/4 - v/8  = (w1*2-1)*v/8
+                    w1 = SccWave[SccCount >>> sh];
                     WSum += (
                         (w1 * v)/ 0x4000000
                     ) - (v / 0x80000);
-
-
-                    //if (!chn.Sync) {
-                        SccCount += Steps;
-                    /*} else {
-                        if ((chn.SccCount < -chn.Steps * 2) || (chn.SccCount >= 0)) {
-                            chn.SccCount += chn.Steps;
-                        }
-                    }*/
-
-                    /*if ((chn.LfoV != 0)) {
-                        if ((chn.LfoDC > 0)) {
-                            chn.LfoDC -= t.Tempo;
-                        } else {
-                            SccCount +=
-                                sinT[chn.LfoC >>> (16 + sinMax_s)] *
-                                div(Steps, 512) *
-                                div(chn.LfoA, 256);
-                            //if (LfoInc)
-                            chn.LfoC += chn.LfoV/2;
-                        }
-
-                    }*/
-
-
-                    //if (WSum > 1) WSum = 1; //16bit
-                    //if (WSum < -1) WSum = -1; //16bit
+                    SccCount += Steps;
                     data[ad]=WSum;
                     if (!noiseWritten) {
                         t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
                     }
                     NoiseP++;
-                }//of for (var i=WriteAd; i<=WriteAd+length; i++
-                chn.SccCount=SccCount;
+                }
+                chn.SccCount=SccCount >>> 0;
                 noiseWritten=true;
                 //bufferState.writtenSamples+=length;
 
