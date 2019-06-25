@@ -1,6 +1,7 @@
 /* global requirejs */
 define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
     function now(){return new Date().getTime();}
+    function WDT2Float(w) {return w/128-1;}
     //--- Also in M2Parser
     var Ses = 10,
         Chs = 10,
@@ -222,7 +223,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
         setNoiseWDT: function (t) {
             // Noise
             for (var j=0;j<1024;j++) {
-                t.WaveDat[WvC-1][j]=Math.floor(Math.random() * 78 + 90);
+                t.WaveDat[WvC-1][j]=WDT2Float( Math.floor(Math.random() * 78 + 90) );
             }
         },
         loadWDT: function (t,url) {
@@ -246,7 +247,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                         var idx=0;
                         for (i = 0; i < WvC; i++) {
                             for (j=0;j<32;j++) {
-                                t.WaveDat[i][j]=b[idx++];
+                                t.WaveDat[i][j]=WDT2Float( b[idx++] );
                             }
                         }
                         t.setNoiseWDT();
@@ -310,8 +311,8 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             for (i = 0; i < WvC; i++) {
                 t.WaveDat[i]=[];
                 for (j = 0; j < WvElC / 2; j++) {
-                    t.WaveDat[i][j] = 103;
-                    t.WaveDat[i][j + div(WvElC, 2)] = 153;
+                    t.WaveDat[i][j] = WDT2Float(103);
+                    t.WaveDat[i][j + div(WvElC, 2)] = WDT2Float(153);
                 }
             }
         },
@@ -816,7 +817,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                         case MWrtWav:
                             chn.MPointC += 34; // MWrtWav wavno data*32
                             for (i = 0; i < 32; i++) {
-                                t.WaveDat[LParam][i] = chn.MPoint[pc + 2 + i];
+                                t.WaveDat[LParam][i] = WDT2Float( chn.MPoint[pc + 2 + i] );
                             }
                             break;
                         case MSelEnv:
@@ -933,7 +934,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 // Sync(for PCM playback) is separeted?
                 for (ad=WriteAd; ad<WriteAd+length; ad++) {
                     WSum = data[ad];
-                    w1 = SccWave[SccCount >>> sh]/128-1;
+                    w1 = SccWave[SccCount >>> sh];///128-1;
                     WSum += w1*v;
                     SccCount += Steps;
                     data[ad]=WSum;
