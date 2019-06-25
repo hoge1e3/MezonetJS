@@ -272,7 +272,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
             singleequ: function (node) {
                 var sa=(node[0]+"").toLowerCase();
                 var b=v.visit(node[1][0]);
-                console.log("singleequ",sa,b);
+                console.log("singleequ",node, sa,b);
                 if (b!=VDefault) {
                     switch(sa) {
                         case "o":
@@ -321,6 +321,18 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                         chkRange(b,0,100,sa);
                         wrt(MPs);
                         wrt(b);
+                        break;
+                        case '@lfo':
+                        var lfoSync=node[1][0]?v.visit(node[1][0]):0;
+                        var lfov=node[1][1]?v.visit(node[1][1]):0;
+                        var lfoa=node[1][2]?v.visit(node[1][2]):0;
+                        var lfod=node[1][3]?v.visit(node[1][3]):0;
+                        chkRange(lfov,0,127,"lfo-velocity");
+                        chkRange(lfoa,0,127,"lfo-amplitude");
+                        chkRange(lfod,0,255,"lfo-delay");
+                        //console.log("@lfo",lfov,lfoa,lfod);
+                        wrt(MLfo);wrt(lfoSync);wrt(lfov);wrt(lfoa);
+                        wrt(MLfoD);wrt(lfod);
                         break;
                     }
                 } else {

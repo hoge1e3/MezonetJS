@@ -118,7 +118,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
         m2tInt=[], //:array[0..95] of Integer;
         sinT = [], //:array [0..sinMAX-1] of ShortInt;
         TTL, //:Integer;
-        cnt; //:Integer;// debug
+        cnt=0; //:Integer;// debug
     var defs;
     var TEnveloper = Klass.define(defs={ //class (TSoundGenerator)
         $this: "t",
@@ -932,6 +932,16 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 if (v<=0) continue;
                 var SccCount=chn.SccCount,Steps=chn.Steps,SccWave=chn.SccWave,sh=(32-chn.L2WL);
                 // Proc LFO here!
+                if (chn.LfoV != 0) {
+                    if (chn.LfoDC > 0) {
+                        chn.LfoDC -= t.Tempo*length;
+                    } else {
+                        Steps += div(
+                            sinT[chn.LfoC >>> (16 + sinMax_s)] *
+                            div(chn.Steps, 512) * chn.LfoA, 256);
+                        chn.LfoC += chn.LfoV/2*length;
+                    }
+                }
                 // Sync(for PCM playback) is separeted?
                 for (ad=WriteAd; ad<WrtEnd; ad++) {
                     data[ad] += v*SccWave[SccCount >>> sh];
