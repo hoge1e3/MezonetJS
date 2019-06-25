@@ -926,17 +926,15 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.PlayState != psPlay) continue;
-                v=vv[ch];
+                v=vv[ch]/ 0x80000;
                 if (v<=0) continue;
                 var SccCount=chn.SccCount,Steps=chn.Steps,SccWave=chn.SccWave,sh=(32-chn.L2WL);
                 // Proc LFO here!
                 // Sync(for PCM playback) is separeted?
                 for (ad=WriteAd; ad<WriteAd+length; ad++) {
                     WSum = data[ad];
-                    w1 = SccWave[SccCount >>> sh];
-                    WSum += (
-                        (w1 * v)/ 0x4000000
-                    ) - (v / 0x80000);
+                    w1 = SccWave[SccCount >>> sh]/128-1;
+                    WSum += w1*v;
                     SccCount += Steps;
                     data[ad]=WSum;
                     /*if (!noiseWritten) {
