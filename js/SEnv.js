@@ -924,6 +924,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             var wrtsT=now();
             t.performance.timeForChProc+=wrtsT-chPT;
             var noiseWritten=false;
+            var WrtEnd=WriteAd+length;
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.PlayState != psPlay) continue;
@@ -932,22 +933,11 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 var SccCount=chn.SccCount,Steps=chn.Steps,SccWave=chn.SccWave,sh=(32-chn.L2WL);
                 // Proc LFO here!
                 // Sync(for PCM playback) is separeted?
-                for (ad=WriteAd; ad<WriteAd+length; ad++) {
-                    WSum = data[ad];
-                    w1 = SccWave[SccCount >>> sh];///128-1;
-                    WSum += w1*v;
+                for (ad=WriteAd; ad<WrtEnd; ad++) {
+                    data[ad] += v*SccWave[SccCount >>> sh];
                     SccCount += Steps;
-                    data[ad]=WSum;
-                    /*if (!noiseWritten) {
-                        t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
-                    }
-                    NoiseP++;*/
                 }
                 chn.SccCount=SccCount >>> 0;
-                //noiseWritten=true;
-                //bufferState.writtenSamples+=length;
-
-
             }// of ch loop
             t.setNoiseWDT();// Longer?
             t.performance.timeForWrtSmpl+=now()-wrtsT;
