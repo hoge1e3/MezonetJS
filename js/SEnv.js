@@ -936,9 +936,8 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                     if (chn.LfoDC > 0) {
                         chn.LfoDC -= t.Tempo*length;
                     } else {
-                        Steps += div(
-                            sinT[chn.LfoC >>> (16 + sinMax_s)] *
-                            div(chn.Steps, 512) * chn.LfoA, 256);
+                        Steps += (sinT[chn.LfoC >>> (16 + sinMax_s)] *
+                                (Steps >> 9 ) * chn.LfoA)  >> 8;
                         chn.LfoC += chn.LfoV/2*length;
                     }
                 }
