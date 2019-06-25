@@ -79,7 +79,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
         /*SPS = 44100,
         SPS96 = 22080,
         SPS_60 = div(44100, 60),*/
-        DivClock = 111860.78125,
+        DivClock = 111860.78125,// See [1]
         Loops = 163840,
 //---------End include
         m2t = [0xd5d, 0xc9c, 0xbe7, 0xb3c, 0xa9b, 0xa02, 0x973, 0x8eb, 0x86b, 0x7f2, 0x780, 0x714,
@@ -90,7 +90,8 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             0x6b, 0x65, 0x5f, 0x5a, 0x55, 0x50, 0x4c, 0x47, 0x43, 0x40, 0x3c, 0x39,
             0x35, 0x32, 0x30, 0x2d, 0x2a, 0x28, 0x26, 0x24, 0x22, 0x20, 0x1e, 0x1c,
             0x1b, 0x19, 0x18, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11, 0x10, 0xf, 0xe
-        ],
+        ],//  From: Tbl5-1 of [1]
+        //[1]  http://ngs.no.coocan.jp/doc/wiki.cgi/TechHan?page=1%BE%CF+PSG%A4%C8%B2%BB%C0%BC%BD%D0%CE%CF
         Trunc = Math.trunc.bind(),
         stEmpty = -1,
         stFreq = 1,
@@ -218,6 +219,12 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 return r;
             }
         },
+        setNoiseWDT: function (t) {
+            // Noise
+            for (var j=0;j<1024;j++) {
+                t.WaveDat[WvC-1][j]=Math.floor(Math.random() * 78 + 90);
+            }
+        },
         loadWDT: function (t,url) {
             return new Promise(function (succ,fail) {
             try{
@@ -237,11 +244,12 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                         console.log("Loading wdt",b.length);
                         //WaveDat
                         var idx=0;
-                        for (i = 0; i < 96; i++) {//WvC
+                        for (i = 0; i < WvC; i++) {
                             for (j=0;j<32;j++) {
                                 t.WaveDat[i][j]=b[idx++];
                             }
                         }
+                        t.setNoiseWDT();
                         //EnvDat
                         for (i=0 ;i<16;i++) {//Envs
                             for (j=0;j<32;j++) {
@@ -477,6 +485,9 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             }
             if (chn.CurWav < WvC) {
                 chn.Steps = m2tInt[n] + chn.Detune * div(m2tInt[n], 2048);
+                if (chn.CurWav===WvC-1) {// Noise
+                    chn.Steps >>>= 5;//  32->1024
+                }
                 // m2tInt*(1+Detune/xx)    (1+256/xx )^12 =2  1+256/xx=1.05946
                 //    256/xx=0.05946   xx=256/0.05946  = 4096?
             } else {
@@ -499,6 +510,11 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
              chn.PorStart=m2tInt[from]+chn.Detune*div(m2tInt[from] , 2048);//Trunc (DivClock/TP*65536/t.sampleRate)+Detune[c];
              //TP=m2t[to];
              chn.PorEnd=m2tInt[to]+chn.Detune*div(m2tInt[to] , 2048);//Trunc (DivClock/TP*65536/t.sampleRate)+Detune[c];
+             // Noise
+             if (chn.CurWav===WvC-1) {
+                 chn.PorStart >>>= 5;//  32->1024
+                 chn.PorEnd >>>= 5;//  32->1024
+             }
              if  (!iss) chn.ECount=0;
 
         },
@@ -657,6 +673,8 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             if (n < WvC) {
                 chn.SccWave = t.WaveDat[n];
                 chn.L2WL = 5;
+                // Noise
+                if (n===WvC-1) chn.L2WL=10;
                 chn.Sync = False;
             } else {
                 if (t.PCMW[n - WvC] != nil) {
@@ -921,17 +939,18 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                     ) - (v / 0x80000);
                     SccCount += Steps;
                     data[ad]=WSum;
-                    if (!noiseWritten) {
+                    /*if (!noiseWritten) {
                         t.WaveDat[95][NoiseP & 31] = Math.floor(Math.random() * 78 + 90);
                     }
-                    NoiseP++;
+                    NoiseP++;*/
                 }
                 chn.SccCount=SccCount >>> 0;
-                noiseWritten=true;
+                //noiseWritten=true;
                 //bufferState.writtenSamples+=length;
 
 
             }// of ch loop
+            t.setNoiseWDT();// Longer?
             t.performance.timeForWrtSmpl+=now()-wrtsT;
             t.performance.elapsedTime+=new Date().getTime()-startTime;
             t.performance.writtenSamples+=length;
