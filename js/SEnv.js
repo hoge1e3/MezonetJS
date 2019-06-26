@@ -918,13 +918,12 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             }
             t.handleAllState();
             t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK );
-            for (var ad=WriteAd; ad<WriteAd+length; ad++) {
+            var WrtEnd=WriteAd+length;
+            for (var ad=WriteAd; ad<WrtEnd; ad++) {
                 data[ad]=0;
             }
             var wrtsT=now();
             t.performance.timeForChProc+=wrtsT-chPT;
-            var noiseWritten=false;
-            var WrtEnd=WriteAd+length;
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.PlayState != psPlay) continue;
