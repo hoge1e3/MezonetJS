@@ -1,6 +1,5 @@
 define(["Klass"], function (Klass) {
     var BinBuf=Klass.define({
-        $this:"t",
         $:function (){
             this.buf=[];
             this.p=0;
@@ -28,7 +27,6 @@ define(["Klass"], function (Klass) {
     });
     var wavSPS=44100;
     WavWriter=Klass.define({
-        $this:"t",
         $:function (raw, rawSampleRate) {
             this.raw=raw;
             this.rawSampleRate=rawSampleRate;

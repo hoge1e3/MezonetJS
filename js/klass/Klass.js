@@ -1,219 +1,119 @@
-define(["assert","FuncUtil"],function (A,FuncUtil) {
+define(["assert"],function (A) {
     var Klass={};
-    var F=FuncUtil;
     Klass.define=function (pd) {
         var p,parent;
-        var SYM_GETP="_"+Math.random(),presult,className="AnonClass";
         if (pd.$parent) {
             parent=pd.$parent;
             p=Object.create(parent.prototype);
-            /*p.super=F.multiArg(function (a) {
+            p.super=function () {
+                var a=Array.prototype.slice.call(arguments);
                 var n=a.shift();
                 return parent.prototype[n].apply(this,a);
-            });*/
+            };
         } else {
             p={};
         }
-        var specialParams={"super":"$super","rest":"$rest"};
-        if (pd.$super) {
-            specialParams.super=pd.$super;
-        }
+        var thisName,singletonName;
         if (pd.$this) {
-            specialParams.self=pd.$this;
+            thisName=pd.$this;
         }
         if (pd.$singleton) {
-            specialParams.singleton=pd.$singleton;
+            singletonName=pd.$singleton;
         }
-        if (pd.$privates) {
-            specialParams.privates=pd.$privates;
-        }
-        if (pd.$rest) {
-            specialParams.rest=pd.$rest;
-        }
-        if (pd.$name) className=pd.$name;
-        var klass=(function () {
-            if (! (this instanceof klass)) {
-                return klass.apply(Object.create(klass.prototype),arguments);
-            }
-            addGetPrivates(this);
-            //A.eq(typeof this[SYM_GETP],"function");
-            init.apply(this,arguments);
-            checkSchema(this);
-            return this;
-        });
-        var init=wrap("$") || (parent?  parent : function (e) {
+        var init=wrap(pd.$) || function (e) {
             if (e && typeof e=="object") {
                 for (var k in e) {
                     this[k]=e[k];
                 }
             }
-        });
+        };
         var fldinit;
-        var check;
+        var warn,wrapped,wrapCancelled;
+        //var check;
         if (init instanceof Array) {
             fldinit=init;
-            init=(function () {
+            init=function () {
                 var a=Array.prototype.slice.call(arguments);
                 for (var i=0;i<fldinit.length;i++) {
                     if (a.length>0) this[fldinit[i]]=a.shift();
                 }
-            });
+            };
         }
-        function getPrivates(o) {
-            //console.log(name,o,SYM_GETP,o[SYM_GETP]);
-            o[SYM_GETP]();
-            return presult;
-        }
-        function addGetPrivates(o) {
-            var _p={};
-            Object.defineProperty(o,SYM_GETP,{
-                value: function () {return presult=_p;},
-                enumerable: false
-            });
-        }
+        var klass;
         function checkSchema(self) {
             if (pd.$fields) {
                 //console.log("Checking schema",self,pd.$fields);
                 A.is(self,pd.$fields);
             }
         }
+        klass=function () {
+            if (! (this instanceof klass)) {
+                var res=Object.create(p);
+                init.apply(res,arguments);
+                checkSchema(res);
+                return res;
+            }
+            init.apply(this,arguments);
+            checkSchema(this);
+        };
         if (parent) {
-            klass.super=FuncUtil.multiArg(function (t,n,a) {
+            klass.super=function () {
+                var a=Array.prototype.slice.call(arguments);
+                var t=a.shift();
+                var n=a.shift();
                 return parent.prototype[n].apply(t,a);
-            });
+            };
         }
         klass.inherit=function (pd) {
             pd.$parent=klass;
             return Klass.define(pd);
         };
         klass.prototype=p;
-        if (parent) klass.superClass=parent;
-        var staticPrefix="static$";
-        var staticPrefixLen=staticPrefix.length;
         for (var name in pd) {
             if (name[0]=="$") continue;
-            if (name.substring(0,staticPrefixLen)==staticPrefix) {
-                klass[name.substring(staticPrefixLen)]=wrap(name);
+            if (name.substring(0,7)=="static$") {
+                klass[name.substring(7)]=wrapStatic(pd[name]);
             } else {
                 if (isPropDesc(pd[name])) {
-                    Object.defineProperty(p,name,wrap(name));
+                    Object.defineProperty(p,name,wrap(pd[name], name));
                 } else {
-                    p[name]=wrap(name);
+                    p[name]=wrap(pd[name], name);
                 }
             }
         }
-        function wrap(name,obj) {
-            obj=obj||pd;
-            //if (!thisName) return m;
-            var m=obj[name];
+        function wrapStatic(m) {
+            if (!singletonName) return m;
+            var args=getArgs(m);
+            if (args[0]!==singletonName) return m;
+            return (function () {
+                var a=Array.prototype.slice.call(arguments);
+                a.unshift(klass);
+                return m.apply(klass,a);
+            });
+        }
+        function wrap(m,mname) {
+            if (!thisName) return m;
             if (isPropDesc(m)) {
                 for (var k in m) {
-                    m[k]=wrap(k,m);
+                    m[k]=wrap(m[k]);
                 }
                 return m;
             }
             if (typeof m!=="function") return m;
-            var params=FuncUtil.getParams(m);
-            if (params[params.length-1]===specialParams.rest) {
-                m=FuncUtil.multiArg(m);
-            }
-            var argparse=[];
-            while (params.length) {
-                var n=params.shift();
-                if (n===specialParams.super) {
-                    argparse.unshift(function () {
-                        return superMethod.bind(this);
-                    });
-                } else if (n===specialParams.self) {
-                    argparse.unshift(function () {
-                        return this;
-                    });
-                } else if (n===specialParams.singleton) {
-                    argparse.unshift(function () {
-                        return (klass);
-                    });
-                } else if (n===specialParams.privates) {
-                    argparse.unshift(function () {
-                        return getPrivates(this);
-                    });
-                } else {
-                    params.unshift(n);
-                    break;
+            if (thisName!==true) {
+                var args=getArgs(m);
+                if (args[0]!==thisName) {
+                    wrapCancelled=wrapCancelled||[];
+                    wrapCancelled.push(mname);
+                    return m;
                 }
+                warn=true;
             }
-            if (argparse.length===0) return m;
-            var superMethod=parent ? (
-                name==="$" ? parent: (
-                    parent.prototype[name] ||
-                    function (){
-                        throw new Error("method (Super class of "+className+")::"+name+" not found.");
-                    }
-                )
-            ):function (){
-                 throw new Error("Class "+className+" does not have superclass");
-            };
-
+            wrapped=true;
             return (function () {
                 var a=Array.prototype.slice.call(arguments);
-                var self=this;
-                argparse.forEach(function (f) {
-                    a.unshift(f.call(self));
-                });
+                a.unshift(this);
                 return m.apply(this,a);
-            });
-
-            //console.log("PARAMS",className,name,params);
-            var code="";
-            while (params.length) {
-                var n=params.shift();
-                if (n===specialParams.super) {
-                    code=F.heredoc(function () {
-                        var self=this;
-                        args.unshift(function () {
-                            return superMethod.apply(self,arguments);
-                        });
-                    })+code;
-                } else if (n===specialParams.self) {
-                    code=F.heredoc(function () {
-                        args.unshift(this);
-                    })+code;
-                } else if (n===specialParams.singleton) {
-                    code=F.heredoc(function () {
-                        args.unshift(klass);
-                    })+code;
-                } else if (n===specialParams.privates) {
-                    code=F.heredoc(function () {
-                        /*console.log("klass",name,klass);
-                        A.is(this,klass);
-                        A.eq(typeof this[SYM_GETP],"function");*/
-                        args.unshift(getPrivates(this));
-                    })+code;
-                } else {
-                    params.unshift(n);
-                    break;
-                }
-            }
-            return F.macro(function NAME(P) {
-                var args=Array.prototype.slice.call(arguments);
-                //CODE
-                return m.apply(this,args);
-            },{
-                replace:{P: params.join(","),"//CODE":code,NAME:name},
-                bindings:{
-                    m: m,
-                    name: name,
-                    klass:klass,
-                    superMethod: parent ? (
-                        name==="$" ? parent: (
-                            parent.prototype[name] ||
-                            function (){ throw new Error("method (Super class of "+className+")::"+name+" not found.");  }
-                        )
-                    ):function (){ throw new Error("Class "+className+" does not have superclass");  },
-                    getPrivates: getPrivates,
-                    A: A,
-                    SYM_GETP: SYM_GETP,
-                    console: console
-                }
             });
         }
         p.$=init;
@@ -225,8 +125,30 @@ define(["assert","FuncUtil"],function (A,FuncUtil) {
                 return this.__bounded;
             }
         });
+        if (warn) {
+            //console.warn("This declaration style may malfunction when minified");
+            if (!wrapCancelled) {
+                console.warn("Use $this:true instead");
+            } else {
+                console.warn("Use python style in all methods and Use $this:true instead",wrapCancelled);
+            }
+            try {
+                throw new Error("Stakku");
+            } catch (e) {
+                console.log(e.stack);
+            }
+            //console.warn(pd);
+        }
         return klass;
     };
+    function getArgs(f) {
+        var fpat=/function[^\(]*\(([^\)]*)\)/;
+        var r=fpat.exec(f+"");
+        if (r) {
+            return r[1].replace(/\s/g,"").split(",");
+        }
+        return [];
+    }
     function isPropDesc(o) {
         if (typeof o!=="object") return false;
         if (!o) return false;
@@ -238,12 +160,12 @@ define(["assert","FuncUtil"],function (A,FuncUtil) {
         }
         return c;
     }
-    Klass.Function=function () {throw new Exception("Abstract");}
+    Klass.Function=function () {throw new Error("Abstract");};
     Klass.opt=A.opt;
     Klass.Binder=Klass.define({
-        $this:"t",
+        $this:true,
         $:function (t,target) {
-            for (var k in target) (function (k){
+            function addMethod(k){
                 if (typeof target[k]!=="function") return;
                 t[k]=function () {
                     var a=Array.prototype.slice.call(arguments);
@@ -251,11 +173,10 @@ define(["assert","FuncUtil"],function (A,FuncUtil) {
                     //A(this.__target,"target is not set");
                     return target[k].apply(target,a);
                 };
-            })(k);
+            }
+            for (var k in target) addMethod(k);
         }
     });
-    Klass.assert=A;
-    Klass.FuncUtil=FuncUtil;
     return Klass;
 });
 /*

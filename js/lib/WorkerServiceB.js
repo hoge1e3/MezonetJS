@@ -2,7 +2,7 @@
 var idseq=0;
 define(["promise","Klass","root"], function (_,Klass,root) {
     var Wrapper=Klass.define({
-        $this:"t",
+        $this:true,
         $: function (t,worker) {
             t.idseq=1;
             t.queue={};

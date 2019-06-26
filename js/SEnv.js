@@ -121,20 +121,13 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
         cnt=0; //:Integer;// debug
     var defs;
     var TEnveloper = Klass.define(defs={ //class (TSoundGenerator)
-        $this: "t",
+        $this: true,
         $fields: {
             //BSize: Integer,
             Pos: Integer,
             PrevPos: Integer,
             RPos: Integer,
-            //WriteAd: Integer,
-            //SccCount: Array, // [0..Chs-1] of Integer;
-            //Steps: Array, // [0..Chs-1] of integer;
-            //SccWave: Array, // [0..Chs-1] of PChar;
             WaveDat: Array, // [0..WvC-1,0..WvElC-1] of Byte;
-            //RefreshRate: Number, //longint,//;
-            //RRPlus: Integer,
-            //PosPlus: Integer, //;
             wdata2: Array,//array[0..wdataSize-1] of SmallInt;
 
             BeginPlay: Boolean,
@@ -142,39 +135,10 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             SeqTime120: Integer,
 
             WavOutMode: Boolean,
-            //WavPlaying: Boolean,
-            /*{$ifdef ForM2}
-            WavOutObj:TWaveSaver,
-            {$endif}*/
-            //EShape: Array, // [0..Chs-1] of PChar,
-            //EVol: Array,
-            //EBaseVol: Array,
-            //ESpeed: Array,
-            //ECount: Array, // [0..Chs-1] of Word,
-            //Oct: Array, // [0..Chs-1] of Byte,
-            //MCount: Array, // [0..Chs-1] of Integer,
-            //MPoint: Array, // [0..Chs-1] of PChar,
-            //MPointC: Array, // [0..Chs-1] of Integer,
-            //Resting: Array, // [0..Chs-1] of Boolean,
-            //PlayState: Array, // [0..Chs-1] of TPlayState,
-            //Slur: Array,
-            //Sync: Array, // [0..Chs-1] of Boolean,
-            //Detune: Array, // [0..Chs-1] of Integer,
-            //PorStart: Array,
-            //PorEnd: Array,
-            //PorLen: Array, // [0..Chs-1] of Integer,
-            //LfoV: Array,
-            //LfoA: Array,
-            //LfoC: Array,
-            //LfoD: Array,
-            //LfoDC: Array,
-            //LfoSync: Array, // [0..Chs-1] of Integer,
-            //sync=0:非同期、1:同期、2:ワンショット 3:鋸波形
+            //LFOsync=0:非同期、1:同期、2:ワンショット 3:鋸波形
             Fading: Integer,
 
-            //CurWav: Array, // [0..Chs-1] of Integer,
-            //L2WL: Array, // [0..Chs-1] of Integer,
-            // log 2 WaveLength
+            //L2WL: log 2 WaveLength
             PCMW: Array, // [0..PCMWavs-1] of TWavLoader,
 
             Delay: Integer,
@@ -265,7 +229,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             } catch(e) {fail(e);}
             });
         },
-        getPlayPos: function () {
+        getPlayPos: function (t) {
             var ti=this.context.currentTime- this. playStartTime;
             var tiSamples=Math.floor(ti*this.sampleRate);
             return tiSamples % wdataSize;
@@ -339,37 +303,9 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             t.ConvM2T();
             t.wdata2=[];
             t.PCMW=[];
-            //t.L2WL=[];
-            //t.Sync=[];
-            //t.ECount=[];
-            //t.MCount=[];
             for (i = 0; i < PCMWavs; i++) {
                 t.PCMW[i] = nil;
             }
-            //t.Steps = [];
-            //t.SccWave = [];
-            //t.SccCount = [];
-            //t.EShape = []; //=t.EnvDat[0];
-            //t.EVol = [];
-            //t.EBaseVol = [];
-            //t.MPoint = [];
-            //t.MPointC = [];
-            //t.ESpeed = [];
-            //t.PlayState = [];
-            //t.Detune = [];
-            //t.LfoV = [];
-            //t.LfoD = [];
-            //t.LfoDC = [];
-            //t.PorStart=[];
-            //t.PorEnd=[];
-            //t.PorLen=[];
-            //t.soundMode = [];
-            //t.CurWav=[];
-            //t.Oct=[];
-            //t.Resting=[];
-            //t.Slur=[];
-            //t.Sync=[];
-            //t.LfoV=[];t.LfoA=[];t.LfoC=[];t.LfoD=[];t.LfoDC=[];t.LfoSync=[];
             t.channels=[];
             for (i = 0; i < Chs; i++) {
                 t.channels.push({});

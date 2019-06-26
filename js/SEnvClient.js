@@ -2,7 +2,7 @@
 define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Klass) {
     var workerURL=WorkerFactory.requireUrl("SEnvWorker");
     return Klass.define({
-        $this:"t",
+        $this:true,
         $:function (t,context) {
             t.w=new WS.Wrapper(new Worker(workerURL));
             t.context=context;
