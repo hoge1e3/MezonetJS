@@ -134,7 +134,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             SeqTime: Integer,
             SeqTime120: Integer,
 
-            WavOutMode: Boolean,
+            wavoutContext: Boolean,
             //LFOsync=0:非同期、1:同期、2:ワンショット 3:鋸波形
             Fading: Integer,
 
@@ -315,9 +315,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             t.timeLag = 2000;
 
             t.WriteMaxLen = 20000;
-            t.WavOutMode = False;
-            t.label2Time=[];
-            t.PC2Time=[];// only ch:0
+            t.wavoutContext = False;
             t.WFilename = '';
             /* {$ifdef ForM2}
             t.WavOutObj=nil;
@@ -567,29 +565,29 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             var grid=t.resolution;
             for (var i=0;i<grid;i++) buf.push(0);
             var allbuf=[];
-            t.writtenSamples=0;
-            t.WavOutMode=true;
-            t.label2Time=[];
-            t.loopStart=null;
-            t.loopStartFrac=null;
-            t.PC2Time=[];// only ch:0
-            var sec=-1;
+            t.wavoutContext={
+                label2Time:[],
+                PC2Time:[],// only ch:0;
+                writtenSamples:0,
+                loopStartFrac:null,
+                arysrc:allbuf
+            };
+            //var sec=-1;
             var efficiency=t.wavOutSpeed||10;
             var setT=0;
             return new Promise(function (succ) {
                     while (true) {
                         for (var i=0;i<grid;i++) allbuf.push(0);
                         t.refreshPSG(allbuf,allbuf.length-grid,grid);
-                        t.writtenSamples+=grid;
-                        var ss=Math.floor(t.writtenSamples/t.sampleRate);
+                        /*var ss=Math.floor(t.writtenSamples/t.sampleRate);
                         if (ss>sec) {
                             //console.log("Written ",ss,"sec");
                             sec=ss;
-                        }
+                        }*/
                         //allbuf=allbuf.concat(buf.slice());
                         if (t.allStopped()) {
-                            t.WavOutMode=false;
-                            succ(allbuf);
+                            succ(t.wavoutContext);
+                            t.wavoutContext=false;
                             //console.log("setT",setT);
                             console.log(t.performance);
                             return;
@@ -597,7 +595,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                     }
             });
         },
-        toAudioBuffer: function (t) {
+        /*toAudioBuffer: function (t) {
             return t.wavOut().then(function (arysrc) {
                 var buffer = t.context.createBuffer(1, arysrc.length, t.sampleRate);
                 var ary = buffer.getChannelData(0);
@@ -608,7 +606,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 if (t.loopStartFrac) res.loopStart=t.loopStartFrac[0]/t.loopStartFrac[1];
                 return res;
             });
-        },
+        },*/
         //procedure TEnveloper.SelWav (ch,n:Integer);
         SelWav: function(t, ch, n) {
             var chn=t.channels[ch];
@@ -668,6 +666,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             }
             var SeqTime=t.SeqTime,lpchk=0,chn;
             var chPT=now();
+            var wctx=t.wavoutContext;
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.MPoint[chn.MPointC] == nil) t.StopMML(ch);
@@ -678,7 +677,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
 
                 while (chn.MCount <= SeqTime) {
                     var pc = chn.MPointC;
-                    if (ch==0) t.PC2Time[pc]=t.writtenSamples;
+                    if (wctx && ch==0) wctx.PC2Time[pc]=wctx.writtenSamples;
                     LParam = chn.MPoint[pc + 1];
                     HParam = chn.MPoint[pc + 2];
                     var code = chn.MPoint[pc];
@@ -745,14 +744,13 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                             }
                             break;
                         case MJmp:
-                            if (t.WavOutMode) {
+                            if (wctx) {
                                 if (ch==0) {
                                     var dstLabelPos=chn.MPointC + array2Int(chn.MPoint, pc+1);
-                                    //var dstLabelNum=chn.MPoint[dstLabelPos+1];
-                                    var dstTime=t.PC2Time[dstLabelPos];// t.label2Time[dstLabelNum-0];
-                                    if (typeof dstTime=="number" && dstTime<t.writtenSamples) {
-                                        t.loopStartFrac=[dstTime, t.sampleRate];
-                                        console.log("@jump", "ofs=",t.loopStartFrac );
+                                    var dstTime=wctx.PC2Time[dstLabelPos];
+                                    if (typeof dstTime=="number" && dstTime<wctx.writtenSamples) {
+                                        wctx.loopStartFrac=[dstTime, t.sampleRate];
+                                        console.log("@jump", "ofs=",wctx.loopStartFrac );
                                     }
                                 }
                                 chn.MPointC += 5;
@@ -767,9 +765,9 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                             }
                             break;
                         case MLabel:
-                            if (t.WavOutMode && ch==0) {
-                                t.label2Time[LParam]=[t.writtenSamples,t.sampleRate];
-                                console.log("@label", LParam , chn.MPointC , t.writtenSamples+"/"+t.sampleRate );
+                            if (wctx && ch==0) {
+                                wctx.label2Time[LParam]=[wctx.writtenSamples,t.sampleRate];
+                                console.log("@label", LParam , chn.MPointC , wctx.writtenSamples+"/"+t.sampleRate );
                             }
                             chn.MPointC+=2;
                             break;
@@ -827,6 +825,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 }
                 // End Of MMLProc
             }
+            if (wctx) wctx.writtenSamples+=length;
             t.handleAllState();
             t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK );
             t.performance.timeForChProc+=now()-chPT;

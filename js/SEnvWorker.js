@@ -12,9 +12,9 @@ define(["SEnv","WorkerServiceW","Tones.wdt","promise"],function (SEnv, WS,wdt,_)
             return e.load(params.mzo);
         }).then(function () {
             return e.wavOut();
-        }).then(function (arysrc) {
+        })/*.then(function (arysrc) {
             return {arysrc:arysrc, loopStartFrac:e.loopStartFrac};
-        });
+        })*/;
     });
     WS.serv("test", function () {
         console.log("TEST!!");
