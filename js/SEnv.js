@@ -333,6 +333,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 t.channels[i].Oct = 4;
                 t.channels[i].soundMode = False;
             }
+            console.log("CH-S",t.channels[0]);
             t.Fading = FadeMax;
             t.timeLag = 2000;
 
@@ -648,30 +649,16 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
         }
         */
         refreshPSG: function(t,data,WriteAd,length) {
-            var i, ch, WaveMod, WriteBytes, wdtmp, inext, mid, w1, w2, //:integer;
-                TP = [],
-                vCenter = [], //:array [0..Chs-1] of Integer;
-                //Steps:array [0..Chs-1] of Integer;
-                Lambda, NewLambda, //:Real;
-                res, //:MMRESULT;
-                WriteTwice, //:Boolean;
-                WriteMax, //:integer;
-                nowt, //:longint;
-                // AllVCenter:Integer;
-                Wf=0, Wt=0, WMid=0, WRes=0, WSum=0, v=0, NoiseP=0, Tmporc=0, //:Integer;
-                LParam, HParam, WParam, //:Byte;
-                JmpSafe, //:Integer;
-                se; //:^TSoundElem;
-
+            t.procChannels(length);
+            t.writeSamples(data,WriteAd,length);
+        },
+        procChannels: function(t,length) {
+            var i, ch, wdtmp,LParam, HParam, WParam, JmpSafe;
             cnt++;
-
             var mcountK=t.sampleRate / 22050;
             var tempoK=44100 / t.sampleRate ;
             var startTime=new Date().getTime();
             if (t.allStopped()) {
-                for (i=WriteAd; i<=WriteAd+length; i++) {
-                    data[i]=0;
-                }
                 return;
             }
             var SeqTime=t.SeqTime,lpchk=0,chn;
@@ -837,19 +824,24 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             }
             t.handleAllState();
             t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK );
-            //----
+            t.performance.timeForChProc+=now()-chPT;
+        },
+        writeSamples: function (t,data,WriteAd,length) {
+            var i, ch, v=0, Tmporc=0,chn,ad;
             var WrtEnd=WriteAd+length;
-            for (var ad=WriteAd; ad<WrtEnd; ad++) {
+            for (ad=WriteAd; ad<WrtEnd; ad++) {
                 data[ad]=0;
             }
+            if (t.allStopped()) {
+                return;
+            }
             var wrtsT=now();
-            t.performance.timeForChProc+=wrtsT-chPT;
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.PlayState != psPlay) continue;
 
                 if (chn.PorLen > 0) {
-                    Tmporc = chn.MCount - SeqTime;
+                    Tmporc = chn.MCount - t.SeqTime;
                     chn.Steps = (
                         div(chn.PorStart, chn.PorLen) * Tmporc +
                         div(chn.PorEnd, chn.PorLen * (chn.PorLen - Tmporc))
@@ -890,14 +882,14 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             }// of ch loop
             t.setNoiseWDT();// Longer?
             t.performance.timeForWrtSmpl+=now()-wrtsT;
-            t.performance.elapsedTime+=new Date().getTime()-startTime;
+            //t.performance.elapsedTime+=new Date().getTime()-startTime;
             t.performance.writtenSamples+=length;
-            t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
+            //t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
             //--------------|---------------------------
             //             playpos  LS            LE
             //                       +-------------+
 
-        }// of refreshPSG
+        }// of writeToArray
     }); // of Klass.define
     var undefs={};
     function replf(_,name) {
