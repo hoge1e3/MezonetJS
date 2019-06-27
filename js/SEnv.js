@@ -674,30 +674,13 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 }
                 return;
             }
-            var vv=[],SeqTime=t.SeqTime,lpchk=0,chn;
+            var SeqTime=t.SeqTime,lpchk=0,chn;
             var chPT=now();
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.MPoint[chn.MPointC] == nil) t.StopMML(ch);
                 if (chn.PlayState != psPlay) continue;
-                if (chn.PorLen > 0) {
-                    Tmporc = chn.MCount - SeqTime;
-                    chn.Steps = (
-                        div(chn.PorStart, chn.PorLen) * Tmporc +
-                        div(chn.PorEnd, chn.PorLen * (chn.PorLen - Tmporc))
-                    );
-                }
-                if ((chn.soundMode))
-                    v = chn.EVol;
-                else if ((chn.Resting))
-                    v = 0;
-                else
-                    v = chn.EShape[chn.ECount >>> 11] * chn.EVol * chn.EBaseVol; // 16bit
-                if (t.Fading < FadeMax) {
-                    v = v * div(t.Fading, FadeMax); // 16bit
-                }
-                vv[ch]=v;
-                if (chn.ECount + chn.ESpeed*(length/2) < 65536 ) chn.ECount += chn.ESpeed*(length/2);
+
 
                 JmpSafe = 0;
 
@@ -854,6 +837,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             }
             t.handleAllState();
             t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK );
+            //----
             var WrtEnd=WriteAd+length;
             for (var ad=WriteAd; ad<WrtEnd; ad++) {
                 data[ad]=0;
@@ -863,7 +847,28 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             for (ch = 0; ch < Chs; ch++) {
                 chn=t.channels[ch];
                 if (chn.PlayState != psPlay) continue;
-                v=vv[ch]/ 0x80000;
+
+                if (chn.PorLen > 0) {
+                    Tmporc = chn.MCount - SeqTime;
+                    chn.Steps = (
+                        div(chn.PorStart, chn.PorLen) * Tmporc +
+                        div(chn.PorEnd, chn.PorLen * (chn.PorLen - Tmporc))
+                    );
+                }
+                if ((chn.soundMode))
+                    v = chn.EVol;
+                else if ((chn.Resting))
+                    v = 0;
+                else
+                    v = chn.EShape[chn.ECount >>> 11] * chn.EVol * chn.EBaseVol; // 16bit
+                if (t.Fading < FadeMax) {
+                    v = v * div(t.Fading, FadeMax); // 16bit
+                }
+                //vv[ch]=v;
+                if (chn.ECount + chn.ESpeed*(length/2) < 65536 ) chn.ECount += chn.ESpeed*(length/2);
+
+                //v=vv[ch]/ 0x80000;
+                v/=0x80000;
                 if (v<=0) continue;
                 var SccCount=chn.SccCount,Steps=chn.Steps,SccWave=chn.SccWave,sh=(32-chn.L2WL);
                 // Proc LFO here!
