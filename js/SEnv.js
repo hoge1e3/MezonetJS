@@ -309,31 +309,33 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             t.channels=[];
             for (i = 0; i < Chs; i++) {
                 t.channels.push({});
-                t.channels[i].LfoV=0;t.channels[i].LfoA=0;t.channels[i].LfoC=0;t.channels[i].LfoD=0;t.channels[i].LfoDC=0;t.channels[i].LfoSync=0;
-                t.channels[i].Slur=t.channels[i].Sync=0;
-                t.channels[i].PorStart=t.channels[i].PorEnd=t.channels[i].PorLen=0;
-                t.channels[i].ECount=0;
-                t.channels[i].MCount=0;
-                t.channels[i].Resting=0;
-                t.channels[i].Steps = 0;
-                t.channels[i].SccWave = t.WaveDat[0];
-                t.channels[i].SccCount = 0;
-                t.channels[i].EShape = t.EnvDat[0];
-                t.channels[i].EVol = 0;
-                t.channels[i].EBaseVol = 128;
-                t.channels[i].MPoint = nil;
-                t.channels[i].MPointC = 0;
-                t.channels[i].ESpeed = 5;
-                t.channels[i].PlayState = psStop;
-                t.channels[i].Detune = 0;
-                t.channels[i].LfoV = 0;
-                t.SelWav(i, 0);
-                t.channels[i].LfoD = 0;
-                t.channels[i].LfoDC = 0;
-                t.channels[i].Oct = 4;
-                t.channels[i].soundMode = False;
             }
-            console.log("CH-S",t.channels[0]);
+            for (i = 0; i < Chs; i++) {
+                var chn=t.channels[i];
+                chn.LfoV=0;chn.LfoA=0;chn.LfoC=0;chn.LfoD=0;chn.LfoDC=0;chn.LfoSync=0;
+                chn.Slur=chn.Sync=0;
+                chn.PorStart=chn.PorEnd=chn.PorLen=0;
+                chn.ECount=0;
+                chn.MCount=0;
+                chn.Resting=0;
+                chn.Steps = 0;
+                chn.SccWave = t.WaveDat[0];
+                chn.SccCount = 0;
+                chn.EShape = t.EnvDat[0];
+                chn.EVol = 0;
+                chn.EBaseVol = 128;
+                chn.MPoint = nil;
+                chn.MPointC = 0;
+                chn.ESpeed = 5;
+                chn.PlayState = psStop;
+                chn.Detune = 0;
+                chn.LfoV = 0;
+                t.SelWav(i, 0);
+                chn.LfoD = 0;
+                chn.LfoDC = 0;
+                chn.Oct = 4;
+                chn.soundMode = False;
+            }
             t.Fading = FadeMax;
             t.timeLag = 2000;
 
@@ -347,7 +349,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
              {$endif}*/
             t.Tempo = 120;
             t.ComStr = '';
-            t.performance={writtenSamples:0, elapsedTime:0, timeForChProc:0, timeForWrtSmpl:0};
+            t.performance={timeForChProc:0, timeForWrtSmpl:0};
             //t.loadWDT();
         },
         getBuffer: function (t) {
@@ -883,7 +885,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             t.setNoiseWDT();// Longer?
             t.performance.timeForWrtSmpl+=now()-wrtsT;
             //t.performance.elapsedTime+=new Date().getTime()-startTime;
-            t.performance.writtenSamples+=length;
+            //t.performance.writtenSamples+=length;
             //t.performance.writeRate=t.performance.writtenSamples/(t.performance.elapsedTime/1000*t.sampleRate);
             //--------------|---------------------------
             //             playpos  LS            LE
