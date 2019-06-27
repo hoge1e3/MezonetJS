@@ -310,7 +310,24 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             for (i = 0; i < Chs; i++) {
                 t.channels.push({});
             }
-            for (i = 0; i < Chs; i++) {
+            t.resetChannelStates();
+            t.Fading = FadeMax;
+            t.timeLag = 2000;
+
+            t.WriteMaxLen = 20000;
+            t.WavOutMode = False;
+            t.label2Time=[];
+            t.PC2Time=[];// only ch:0
+            t.WFilename = '';
+            /* {$ifdef ForM2}
+            t.WavOutObj=nil;
+             {$endif}*/
+            t.ComStr = '';
+            t.performance={timeForChProc:0, timeForWrtSmpl:0};
+            //t.loadWDT();
+        },
+        resetChannelStates: function (t) {
+            for (var i = 0; i < Chs; i++) {
                 var chn=t.channels[i];
                 chn.LfoV=0;chn.LfoA=0;chn.LfoC=0;chn.LfoD=0;chn.LfoDC=0;chn.LfoSync=0;
                 chn.Slur=chn.Sync=0;
@@ -324,7 +341,6 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 chn.EShape = t.EnvDat[0];
                 chn.EVol = 0;
                 chn.EBaseVol = 128;
-                chn.MPoint = nil;
                 chn.MPointC = 0;
                 chn.ESpeed = 5;
                 chn.PlayState = psStop;
@@ -336,21 +352,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 chn.Oct = 4;
                 chn.soundMode = False;
             }
-            t.Fading = FadeMax;
-            t.timeLag = 2000;
-
-            t.WriteMaxLen = 20000;
-            t.WavOutMode = False;
-            t.label2Time=[];
-            t.PC2Time=[];// only ch:0
-            t.WFilename = '';
-            /* {$ifdef ForM2}
-            t.WavOutObj=nil;
-             {$endif}*/
             t.Tempo = 120;
-            t.ComStr = '';
-            t.performance={timeForChProc:0, timeForWrtSmpl:0};
-            //t.loadWDT();
         },
         getBuffer: function (t) {
             var channel=1;
@@ -543,13 +545,14 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
         },
         Rewind: function (t) {
             var ch; //:Integer;
+            t.resetChannelStates();
             t.SeqTime=0;
             for (ch = 0; ch < Chs; ch++) {
                 var chn=t.channels[ch];
-                chn.soundMode = False;
-                chn.MPointC = 0;
+                //chn.soundMode = False;
+                //chn.MPointC = 0;
                 chn.PlayState = psPlay;
-                chn.MCount = t.SeqTime;
+                //chn.MCount = t.SeqTime;
             }
         },
         Stop: function (t) {
