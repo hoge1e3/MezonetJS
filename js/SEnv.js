@@ -193,7 +193,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
         loadWDT: function (t,url) {
             return new Promise(function (succ,fail) {
             try{
-                console.log("LOading wdt...?");
+                //console.log("LOading wdt...?");
                 if (!url) {
                     requirejs(["Tones.wdt"],function (u) {
                         t.loadWDT(u).then(succ,fail);
@@ -229,11 +229,11 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             } catch(e) {fail(e);}
             });
         },
-        getPlayPos: function (t) {
+        /*getPlayPos: function (t) {
             var ti=this.context.currentTime- this. playStartTime;
             var tiSamples=Math.floor(ti*this.sampleRate);
             return tiSamples % wdataSize;
-        },
+        },*/
         setSound: function(t, ch /*:Integer;*/ , typ /*:Integer;*/ , val /*:Integer*/ ) {
             var chn=t.channels[ch];
             chn.soundMode = True;
@@ -289,7 +289,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             t.resolution=options.resolution||120;
             t.wavOutSpeed=options.wavOutSpeed||10;
             t.context=context;
-            t.sampleRate = t.context.sampleRate;
+            t.sampleRate = chkn(t.context.sampleRate,"t.context.sampleRate");
             //t.initNode({});
             //t.WavPlaying=false;
             // inherited Create (Handle);
@@ -352,6 +352,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             }
             t.Tempo = 120;
         },
+        /*
         getBuffer: function (t) {
             var channel=1;
             if (this.buf) return this.buf;
@@ -407,7 +408,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             if (!this.isSrcPlaying) return;
             this.bufSrc.stop();
             this.isSrcPlaying = false;
-        },
+        },*/
         Play1Sound: function(t, c, n, iss) {
             var TP; //:Integer;
             var chn=t.channels[c];
@@ -534,13 +535,13 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             chn.MCount = t.SeqTime + 1;
         },
         //procedure TEnveloper.Start;
-        Start: function(t) {
+        /*Start: function(t) {
             t.Stop();
             t.Rewind();
             t.BeginPlay = True;
             t.startRefreshLoop();
             t.playNode();
-        },
+        },*/
         Rewind: function (t) {
             var ch; //:Integer;
             t.resetChannelStates();
@@ -553,46 +554,57 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 //chn.MCount = t.SeqTime;
             }
         },
-        Stop: function (t) {
+        /*Stop: function (t) {
             if (!t.BeginPlay) return;
             t.stopNode();
             t.stopRefreshLoop();
+        },*/
+        resetWavOut: function (t) {
+            t.wavoutContext=false;
         },
-        wavOut: function (t) {
-            t.Stop();
-            t.Rewind();
+        wavOut: function (t,options) {
+            options=options||{};
+
+            //t.Stop();
             var buf=[];
             var grid=t.resolution;
-            for (var i=0;i<grid;i++) buf.push(0);
+            //for (var i=0;i<grid;i++) buf.push(0);
             var allbuf=[];
-            t.wavoutContext={
-                label2Time:[],
-                PC2Time:[],// only ch:0;
-                writtenSamples:0,
-                loopStartFrac:null,
-                arysrc:allbuf
-            };
+            var max=options.maxSamples;
+            if (!t.wavoutContext) {
+                t.Rewind();
+                t.wavoutContext={
+                    label2Time:[],
+                    PC2Time:[],// only ch:0;
+                    writtenSamples:0,
+                    loopStartFrac:null
+                };
+            }
+            var wctx=t.wavoutContext;
+            wctx.arysrc=allbuf;
+            wctx.maxSamples=max;
             //var sec=-1;
             var efficiency=t.wavOutSpeed||10;
             var setT=0;
+            var writtenSamplesAtThisCall=0;
             return new Promise(function (succ) {
-                    while (true) {
+                while (true) {
+                    var overflow=max && writtenSamplesAtThisCall>=max-grid;
+                    if (!overflow) {
                         for (var i=0;i<grid;i++) allbuf.push(0);
                         t.refreshPSG(allbuf,allbuf.length-grid,grid);
-                        /*var ss=Math.floor(t.writtenSamples/t.sampleRate);
-                        if (ss>sec) {
-                            //console.log("Written ",ss,"sec");
-                            sec=ss;
-                        }*/
-                        //allbuf=allbuf.concat(buf.slice());
-                        if (t.allStopped()) {
-                            succ(t.wavoutContext);
-                            t.wavoutContext=false;
-                            //console.log("setT",setT);
-                            console.log(t.performance);
-                            return;
-                        }
+                        //console.log("SeqTime",t.SeqTime);
+                        writtenSamplesAtThisCall+=grid;
                     }
+                    if (t.allStopped() || overflow) {
+                        wctx.hasNext=overflow;
+                        if (!overflow) t.wavoutContext=false;
+                        succ(wctx);
+                        //console.log("setT",setT);
+                        //console.log(t.performance);
+                        return;
+                    }
+                }
             });
         },
         /*toAudioBuffer: function (t) {
@@ -607,7 +619,6 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 return res;
             });
         },*/
-        //procedure TEnveloper.SelWav (ch,n:Integer);
         SelWav: function(t, ch, n) {
             var chn=t.channels[ch];
             chn.CurWav = n;
@@ -677,7 +688,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
 
                 while (chn.MCount <= SeqTime) {
                     var pc = chn.MPointC;
-                    if (wctx && ch==0) wctx.PC2Time[pc]=wctx.writtenSamples;
+                    if (wctx && !wctx.maxSamples && ch==0) wctx.PC2Time[pc]=wctx.writtenSamples;
                     LParam = chn.MPoint[pc + 1];
                     HParam = chn.MPoint[pc + 2];
                     var code = chn.MPoint[pc];
@@ -744,7 +755,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                             }
                             break;
                         case MJmp:
-                            if (wctx) {
+                            if (wctx && !wctx.maxSamples) {
                                 if (ch==0) {
                                     var dstLabelPos=chn.MPointC + array2Int(chn.MPoint, pc+1);
                                     var dstTime=wctx.PC2Time[dstLabelPos];
@@ -765,10 +776,10 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                             }
                             break;
                         case MLabel:
-                            if (wctx && ch==0) {
+                            /*if (wctx && ch==0) {
                                 wctx.label2Time[LParam]=[wctx.writtenSamples,t.sampleRate];
                                 console.log("@label", LParam , chn.MPointC , wctx.writtenSamples+"/"+t.sampleRate );
-                            }
+                            }*/
                             chn.MPointC+=2;
                             break;
                         case MSlur:
