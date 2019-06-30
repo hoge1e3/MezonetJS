@@ -8,15 +8,14 @@ function (P,ww,FS,dm,MezonetClient) {
     } else if (typeof (AudioContext) !== "undefined") {
         context = new AudioContext();
     }
+    var m;
     var playback;
-    window.stopBufSrc=function () {
-        if (window.bufSrc) window.bufSrc.stop();
-        delete window.bufSrc;
-    };
     window.playAsBuffer=function () {
         try {
+            window.stop();
             var mzo=P.parseMML(document.querySelector("#mml").value);
-            var m=new MezonetClient(context,mzo);
+            if (m) m.terminate();
+            m=new MezonetClient(context,mzo);
             m.init().then(function () {
                 playback=m.playAsMezonet();
                 return playback.start();
@@ -30,26 +29,9 @@ function (P,ww,FS,dm,MezonetClient) {
             alert(e);
         }
     };
-    window.playBuffer=function (data) {
-        window.stopBufSrc();
-        //var t=window.senv;
-        console.log("AudioData",data);
-        var source = context.createBufferSource();
-        source.buffer = data.decodedData;
-        source.connect(context.destination);
-        if (data.loopStart!=null) {
-            source.loop=true;
-            source.loopStart=data.loopStart;
-            source.loopEnd=data.decodedData.duration;
-        }
-        console.log("AudioData src",source.loopStart, source.loopEnd);
-        source.start = source.start || source.noteOn;
-        source.start(0);
-        window.bufSrc=source;
-    };
     window.stop=function () {
-        playback.stop();
-        window.stopBufSrc();
+        if (playback) playback.stop();
+        //window.stopBufSrc();
         //window.senv.Stop();
     };
     window.wav=function wav() {

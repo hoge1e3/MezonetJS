@@ -56,6 +56,10 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             source.start = source.start || source.noteOn;
             source.start(0);
             this.isSrcPlaying = true;
+            source.onended=function () {
+                t.isSrcPlaying=false;
+                //console.log("END!");
+            };
             //console.log("Node start",t.buffer);
             //window.buff=t.buffer;
         },
@@ -83,13 +87,16 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             });
         },
         startRefreshLoop: function (t) {
-            console.log("t.playbackMode.type",t.playbackMode.type);
-            if (t.playbackMode.type==="AudioBuffer") return;
+            //console.log("t.playbackMode.type",t.playbackMode.type);
+            if (t.playbackMode.type==="AudioBuffer") return "loop not used";
             var data=t.buffer.getChannelData(0),cur=0,end,writtenEmpty=0;
             return refresh();
             function refresh() {
                 return timeout(10).then(function () {
-                    if (!t.isSrcPlaying) return "NOT playing";
+                    if (!t.isSrcPlaying) {
+                        if (t.w) t.w.terminate();
+                        return "stopped";
+                    }
                     var cnt=0;
                     var playPos=t.getPlayPos();
                     var diff=playPos-cur;
@@ -109,7 +116,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                         maxSamples:reqLen
                     }).then(function (res) {
                         var i,s=res.arysrc;
-                        console.log(reqLen,res);
+                        //console.log(reqLen,res);
                         for (i=0;i<s.length;i++) {
                             data[cur]=s[i];
                             cur=(cur+1)%t.wdataSize;
@@ -137,7 +144,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         stop: function (t) {
             if (t.bufSrc) t.bufSrc.stop();
             t.isSrcPlaying=false;
-            t.w.terminate();
+            return "stopped";
         }
     });
     return Klass.define({
@@ -178,6 +185,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                         type:"AudioBuffer",
                         buffer:buffer//コピーしないで使い回す
                     };
+                    t.terminate();
                 }
                 res.playbackMode=t.playbackMode;
                 console.log(res);
