@@ -41,7 +41,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             t.src=src;
             t.sampleRate=t.context.sampleRate;
             t.wdataSize=t.src.maxSamples||t.sampleRate*4;
-            t.curTempo=1;
+            t.curRate=1;
             t.plusTime=0;
         },
         playNode: function (t) {
@@ -58,12 +58,12 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             //source.start();
             source.loop = t.playbackMode.type==="Mezonet";
             //console.log("source.loop",source.loop);
-            this.playStartTime = this.context.currentTime;
+            source.playStartTime= this.playStartTime = this.context.currentTime;
             this.bufSrc=source;
             source.start = source.start || source.noteOn;
             source.start(0);
             this.isSrcPlaying = true;
-            t.curTempo=1;
+            t.curRate=1;
             t.plusTime=0;
             source.onended=function () {
                 t.isSrcPlaying=false;
@@ -81,16 +81,20 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         getPlayPos: function (t) {
             if (t.isPaused) return t.isPaused.resumeAt;
             var ti=this.context.currentTime- this. playStartTime;
-            ti*=t.curTempo;
+            ti*=t.curRate;
             ti+=t.plusTime;
             var tiSamples=Math.floor(ti*this.sampleRate);
             return tiSamples % t.wdataSize;
         },
-        setRate: function (t,tempo) {
-            if (tempo <= 0 || isNaN(tempo)) tempo = 1;
-            t.plusTime -= (t.context.currentTime - t.playStartTime) * (tempo - t.curTempo);
-            t.curTempo = tempo;
-            t.bufSrc.playbackRate.value = tempo;
+        setRate: function (t,rate) {
+            if (rate <= 0 || isNaN(rate)) rate = 1;
+            if (t.isPaused) {
+                t.isPaused.nextRate=rate;
+                return;
+            }
+            t.plusTime -= (t.context.currentTime - t.playStartTime) * (rate - t.curRate);
+            t.curRate = rate;
+            t.bufSrc.playbackRate.value = rate;
         },
         prepareBuffer: function(t) {
             //console.log("maxsamples",t.wdataSize);
@@ -111,7 +115,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             var data=t.buffer.getChannelData(0),cur=0,end,writtenEmpty=0;
             return refresh();
             function refresh() {
-                return timeout(500).then(function () {
+                return timeout(50).then(function () {
                     if (!t.isSrcPlaying) {
                         if (t.w) t.w.terminate();
                         return "stopped";
@@ -120,6 +124,8 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                     var playPos=t.getPlayPos();
                     var diff=playPos-cur;
                     var reqLen=(diff>=0 ? diff : t.wdataSize+diff );
+                    reqLen-=Math.floor(t.wdataSize*0.05);// getPlayPosがずれた時のための安全係数
+                    if (reqLen<0) reqLen=0;
                     //console.log("A",cur,reqLen,end);
                     if (end) {
                         if (t.visualize) t.visualize(playPos,data,cur,reqLen);
@@ -131,7 +137,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                         if (writtenEmpty>=t.wdataSize) return t.stop();
                         else return refresh();
                     }
-                    if (reqLen==0) return timeout(10).then(refresh);
+                    if (reqLen==0) return timeout(50).then(refresh);
                     return t.w.run("MezonetJS/wavOut",{
                         maxSamples:reqLen
                     }).then(function (res) {
@@ -174,14 +180,19 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
 
             source.loop = t.playbackMode.type==="Mezonet";
             this.bufSrc=source;
-            t.plusTime -= (t.context.currentTime-t.isPaused.pausedTime)*t.curTempo;
+            t.plusTime -= (t.context.currentTime-t.isPaused.pausedTime)*t.curRate;
             source.start = source.start || source.noteOn;
+            source.playStartTime= this.context.currentTime;
             source.start(0, t.isPaused.resumeAt/ t.sampleRate );
             source.onended=function () {
                 t.isSrcPlaying=false;
             };
-            source.playbackRate.value=t.curTempo;
+            source.playbackRate.value=t.curRate;
+            var nr=t.isPaused.nextRate;
             delete t.isPaused;
+            if (nr) {
+                t.setRate(nr);
+            }
         },
         stop: function (t) {
             if (t.bufSrc) t.bufSrc.stop();
