@@ -41,12 +41,19 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             t.src=src;
             t.sampleRate=t.context.sampleRate;
             t.wdataSize=t.src.maxSamples||t.sampleRate*4;
+            t.curTempo=1;
+            t.plusTime=0;
         },
         playNode: function (t) {
             if (this.isSrcPlaying) return;
             var source = this.context.createBufferSource();
             source.buffer = t.buffer;
-            source.connect(this.context.destination);
+
+            this.context.createGain = this.context.createGain || this.context.createGainNode;
+            var gainNode = this.context.createGain();
+            source.connect(gainNode);
+            gainNode.connect(this.context.destination);
+            t.gainNode=gainNode;
             // 音源の再生を始める
             //source.start();
             source.loop = t.playbackMode.type==="Mezonet";
@@ -56,6 +63,8 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             source.start = source.start || source.noteOn;
             source.start(0);
             this.isSrcPlaying = true;
+            t.curTempo=1;
+            t.plusTime=0;
             source.onended=function () {
                 t.isSrcPlaying=false;
                 //console.log("END!");
@@ -71,8 +80,16 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         },
         getPlayPos: function (t) {
             var ti=this.context.currentTime- this. playStartTime;
+            ti*=t.curTempo;
+            ti+=t.plusTime;
             var tiSamples=Math.floor(ti*this.sampleRate);
             return tiSamples % t.wdataSize;
+        },
+        setRate: function (t,tempo) {
+            if (tempo <= 0 || isNaN(tempo)) tempo = 1;
+            t.plusTime -= (t.context.currentTime - t.playStartTime) * (tempo - t.curTempo);
+            t.curTempo = tempo;
+            t.bufSrc.playbackRate.value = tempo;
         },
         prepareBuffer: function(t) {
             //console.log("maxsamples",t.wdataSize);
@@ -129,11 +146,9 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 });
             }
         },
-        setRate: function (t,rate) {
-
-        },
         setVolume: function (t,volume) {
-
+            volume=typeof volume==="number" ? volume:1;
+            t.gainNode.gain.value=volume;
         },
         pause: function (t) {
 

@@ -16,8 +16,10 @@ function (P,ww,FS,dm,MezonetClient) {
             var mzo=P.parseMML(document.querySelector("#mml").value);
             if (m) m.terminate();
             m=new MezonetClient(context,mzo);
+            window.m=m;
             m.init().then(function () {
                 playback=m.playAsMezonet();
+                window.playback=playback;
                 return playback.start();
             }).then(function (res) {
                 console.log(res);
