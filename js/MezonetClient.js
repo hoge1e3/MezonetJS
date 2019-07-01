@@ -57,8 +57,8 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             // 音源の再生を始める
             //source.start();
             source.loop = t.playbackMode.type==="Mezonet";
-            console.log("source.loop",source.loop);
-            source.playStartTime = this.playStartTime = this.context.currentTime;
+            //console.log("source.loop",source.loop);
+            this.playStartTime = this.context.currentTime;
             this.bufSrc=source;
             source.start = source.start || source.noteOn;
             source.start(0);
@@ -79,6 +79,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             });
         },
         getPlayPos: function (t) {
+            if (t.isPaused) return t.isPaused.resumeAt;
             var ti=this.context.currentTime- this. playStartTime;
             ti*=t.curTempo;
             ti+=t.plusTime;
@@ -100,6 +101,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 maxSamples:t.wdataSize
             }).then(function (res) {
                 t.buffer=arrayToAudioBuffer(t.context,res.arysrc,t.sampleRate);
+                if (t.visualize) t.visualize(0,res.arysrc,0,res.arysrc.length);
                 return t.buffer;
             });
         },
@@ -109,7 +111,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             var data=t.buffer.getChannelData(0),cur=0,end,writtenEmpty=0;
             return refresh();
             function refresh() {
-                return timeout(10).then(function () {
+                return timeout(500).then(function () {
                     if (!t.isSrcPlaying) {
                         if (t.w) t.w.terminate();
                         return "stopped";
@@ -120,6 +122,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                     var reqLen=(diff>=0 ? diff : t.wdataSize+diff );
                     //console.log("A",cur,reqLen,end);
                     if (end) {
+                        if (t.visualize) t.visualize(playPos,data,cur,reqLen);
                         for (var i=0;i<reqLen;i++) {
                             data[cur]=0;
                             cur=(cur+1)%t.wdataSize;
@@ -134,6 +137,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                     }).then(function (res) {
                         var i,s=res.arysrc;
                         //console.log(reqLen,res);
+                        if (t.visualize) t.visualize(playPos,data,cur,s.length);
                         for (i=0;i<s.length;i++) {
                             data[cur]=s[i];
                             cur=(cur+1)%t.wdataSize;
@@ -152,10 +156,32 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             t.gainNode.gain.value=volume;
         },
         pause: function (t) {
-
+            if (!t.isSrcPlaying) return;
+            if (t.isPaused) return;
+            t.isPaused={
+                resumeAt: t.getPlayPos(),
+                pausedTime: t.context.currentTime
+            };
+            t.bufSrc.stop();
+            t.bufSrc.disconnect();
         },
         resume: function (t) {
+            if (!t.isSrcPlaying) return;
+            if (!t.isPaused) return;
+            var source = this.context.createBufferSource();
+            source.buffer = t.buffer;
+            source.connect(t.gainNode);
 
+            source.loop = t.playbackMode.type==="Mezonet";
+            this.bufSrc=source;
+            t.plusTime -= (t.context.currentTime-t.isPaused.pausedTime)*t.curTempo;
+            source.start = source.start || source.noteOn;
+            source.start(0, t.isPaused.resumeAt/ t.sampleRate );
+            source.onended=function () {
+                t.isSrcPlaying=false;
+            };
+            source.playbackRate.value=t.curTempo;
+            delete t.isPaused;
         },
         stop: function (t) {
             if (t.bufSrc) t.bufSrc.stop();
