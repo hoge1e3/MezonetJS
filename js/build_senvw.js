@@ -3,7 +3,7 @@
     name: 'almond',
     include: ['SEnvWorker'],
     insertRequire: ['SEnvWorker'],
-    optimize:"none",//"uglify",// uglify changes function(t) ->function (e) this is not this
+    optimize:"uglify",// uglify changes function(t) ->function (e) this is not this
     baseUrl: "..",
     /*wrap: {
         startFile: "func_head.txt",

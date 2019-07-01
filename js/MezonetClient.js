@@ -140,6 +140,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                         }
                         if (!res.hasNext) {
                             end=true;
+                            t.w.terminate();
                         }
                         return refresh();
                     });
@@ -200,8 +201,8 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                         type:"AudioBuffer",
                         buffer:buffer//コピーしないで使い回す
                     };
-                    t.terminate();
                 }
+                t.w.terminate();
                 res.playbackMode=t.playbackMode;
                 console.log(res);
                 return res;
