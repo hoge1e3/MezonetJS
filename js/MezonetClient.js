@@ -43,9 +43,12 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             t.wdataSize=t.src.maxSamples||t.sampleRate*4;
             t.curRate=1;
             t.plusTime=0;
+            t.writtenSamples=0;
         },
-        playNode: function (t) {
+        playNode: function (t,options) {
+            if (t.isStopped) return ;
             if (this.isSrcPlaying) return;
+            options=options||{};
             var source = this.context.createBufferSource();
             source.buffer = t.buffer;
 
@@ -54,35 +57,44 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             source.connect(gainNode);
             gainNode.connect(this.context.destination);
             t.gainNode=gainNode;
-            // 音源の再生を始める
-            //source.start();
             source.loop = t.playbackMode.type==="Mezonet";
-            //console.log("source.loop",source.loop);
-            source.playStartTime= this.playStartTime = this.context.currentTime;
             this.bufSrc=source;
             source.start = source.start || source.noteOn;
-            source.start(0);
+            //console.log("STATO",start);
+            var ct=t.context.currentTime;
+            var start=options.start||ct;
+            if (start<ct) start=ct;
+            this.playStartTime = start;
+            source.start(start);
             this.isSrcPlaying = true;
-            t.curRate=1;
+            var rate=options.rate||1;
+            t.curRate=rate;
+            source.playbackRate.value = rate;
             t.plusTime=0;
             source.onended=function () {
                 t.isSrcPlaying=false;
-                //console.log("END!");
             };
-            //console.log("Node start",t.buffer);
-            //window.buff=t.buffer;
         },
-        start:function (t) {
-            return t.prepareBuffer().then(function () {
-                t.playNode();
+        start:function (t,options) {
+            if (t.isStopped) return Promise.resolve();
+            return t.prepareBuffer(options).then(function () {
+                t.playNode(options);
                 return t.startRefreshLoop();
             });
         },
-        getPlayPos: function (t) {
-            if (t.isPaused) return t.isPaused.resumeAt;
+        getCurrentTime: function (t) {
+            if (t.isStopped) return 0;
+            if (t.isPaused) return t.isPaused.pausedTimeInTrack;
             var ti=this.context.currentTime- this. playStartTime;
             ti*=t.curRate;
             ti+=t.plusTime;
+            if (ti<0) return 0;
+            return ti;
+        },
+        getCurrentSampleInBuffer: function (t) {
+            if (t.isStopped) return 0;
+            if (t.isPaused) return t.isPaused.pausedSampleInBuffer;
+            var ti=t.getCurrentTime();
             var tiSamples=Math.floor(ti*this.sampleRate);
             return tiSamples % t.wdataSize;
         },
@@ -106,6 +118,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             }).then(function (res) {
                 t.buffer=arrayToAudioBuffer(t.context,res.arysrc,t.sampleRate);
                 if (t.visualize) t.visualize(0,res.arysrc,0,res.arysrc.length);
+                t.writtenSamples+=res.arysrc.length;
                 return t.buffer;
             });
         },
@@ -121,18 +134,20 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                         return "stopped";
                     }
                     var cnt=0;
-                    var playPos=t.getPlayPos();
+                    var playPos=t.getCurrentSampleInBuffer();
                     var diff=playPos-cur;
                     var reqLen=(diff>=0 ? diff : t.wdataSize+diff );
-                    reqLen-=Math.floor(t.wdataSize*0.05);// getPlayPosがずれた時のための安全係数
+                    reqLen-=Math.floor(t.wdataSize*0.05);// getCurrentSampleInBufferがずれた時のための安全係数
                     if (reqLen<0) reqLen=0;
                     //console.log("A",cur,reqLen,end);
                     if (end) {
-                        if (t.visualize) t.visualize(playPos,data,cur,reqLen);
+                        var svc=cur;
                         for (var i=0;i<reqLen;i++) {
                             data[cur]=0;
                             cur=(cur+1)%t.wdataSize;
                         }
+                        if (t.visualize) t.visualize(playPos,data,svc,reqLen);
+                        t.writtenSamples+=reqLen;
                         writtenEmpty+=reqLen;
                         if (writtenEmpty>=t.wdataSize) return t.stop();
                         else return refresh();
@@ -143,11 +158,13 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                     }).then(function (res) {
                         var i,s=res.arysrc;
                         //console.log(reqLen,res);
-                        if (t.visualize) t.visualize(playPos,data,cur,s.length);
+                        var svc=cur;
                         for (i=0;i<s.length;i++) {
                             data[cur]=s[i];
                             cur=(cur+1)%t.wdataSize;
                         }
+                        if (t.visualize) t.visualize(playPos,data,svc,s.length);
+                        t.writtenSamples+=s.length;
                         if (!res.hasNext) {
                             end=true;
                             t.w.terminate();
@@ -162,16 +179,19 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             t.gainNode.gain.value=volume;
         },
         pause: function (t) {
+            if (t.isStopped) return;
             if (!t.isSrcPlaying) return;
             if (t.isPaused) return;
             t.isPaused={
-                resumeAt: t.getPlayPos(),
+                pausedTimeInTrack: t.getCurrentTime(),
+                pausedSampleInBuffer: t.getCurrentSampleInBuffer(),
                 pausedTime: t.context.currentTime
             };
             t.bufSrc.stop();
             t.bufSrc.disconnect();
         },
         resume: function (t) {
+            if (t.isStopped) return;
             if (!t.isSrcPlaying) return;
             if (!t.isPaused) return;
             var source = this.context.createBufferSource();
@@ -183,7 +203,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             t.plusTime -= (t.context.currentTime-t.isPaused.pausedTime)*t.curRate;
             source.start = source.start || source.noteOn;
             source.playStartTime= this.context.currentTime;
-            source.start(0, t.isPaused.resumeAt/ t.sampleRate );
+            source.start(0, t.isPaused.pausedSampleInBuffer/ t.sampleRate );
             source.onended=function () {
                 t.isSrcPlaying=false;
             };
@@ -197,10 +217,11 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         stop: function (t) {
             if (t.bufSrc) t.bufSrc.stop();
             t.isSrcPlaying=false;
+            t.isStopped=true;
             return "stopped";
         }
     });
-    return Klass.define({
+    var Mezonet=Klass.define({
         $this:true,
         $:function (t,context,mzo) {
             t.w=new WS.Wrapper(new Worker(workerURL));
@@ -214,10 +235,11 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         },
         init: function (t,options) {
             options=options||{};
+            t.maxSamples=options.maxSamples||t.context.sampleRate*4;
             return t.w.run("MezonetJS/wavOut",{
                 mzo:t.mzo,
                 sampleRate:t.sampleRate,
-                maxSamples:options.maxSamples||t.context.sampleRate*4
+                maxSamples:t.maxSamples
             }).then(function (res) {
                 if (res.loopStartFrac) {
                     res.loopStart=res.loopStartFrac[0]/res.loopStartFrac[1];
@@ -249,4 +271,6 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             t.w.terminate();
         }
     });
+    Mezonet.Playback=Playback;
+    return Mezonet;
 });

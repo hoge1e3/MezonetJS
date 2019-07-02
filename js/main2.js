@@ -21,7 +21,7 @@ function (P,ww,FS,dm,MezonetClient) {
                 playback=m.playAsMezonet();
                 playback.visualize=visualize;
                 window.playback=playback;
-                return playback.start();
+                return playback.start({start:context.currentTime+0, rate:1});
             }).then(function (res) {
                 console.log(res);
             },function (e) {
@@ -98,33 +98,42 @@ function visualize(playPos, data, writePos, writeLength) {
     //console.log(playPos,writePos,data.length);
     for (var i=0;i<writeLength;i++) {
         if (i%pitch==0) {
-            ctx.fillStyle="black";
+            ctx.fillStyle="hsl("+(Math.floor((window.playback.writtenSamples+i)/1000)%360)+",100%,80%)";
+            //console.log("hsl("+(Math.floor(window.playback.writtenSamples/1000)%360)+",100%,50%)");
             var x=Math.floor(writePos/pitch);
             ctx.fillRect( x, 0, 1, h);
-            ctx.fillStyle="white";
+            ctx.fillStyle="hsl("+(Math.floor((window.playback.writtenSamples+i)/1000)%360)+",100%,30%)";
             ctx.fillRect( x, 0, 1, data[writePos]*h/2+h/2);
         }
         writePos=(writePos+1)%data.length;
     }
-    ctx.clearRect(0,0,w,10);
+    /*ctx.clearRect(0,0,w,10);
     ctx.fillStyle="red";
     ctx.fillRect(playPos/data.length*w,0,2,10);
     ctx.fillStyle="blue";
-    ctx.fillRect(writePos/data.length*w,0,2,10);
+    ctx.fillRect(writePos/data.length*w,0,2,10);*/
 }
 function refreshPos() {
     var data=window.data;
     var playback=window.playback;
     if(!data) return;
     if (!playback) return;
+    /*for (var i=0;i<100;i++) {
+        data[i]=-1;
+        data[data.length-1-i]=1;
+    }*/
     var cv=document.querySelector("#canvas");
     var w=cv.getAttribute("width")-0;
     var h=cv.getAttribute("height")-0;
     var ctx=cv.getContext("2d");
-    var playPos=playback.getPlayPos();
+    var playPos=playback.getCurrentSampleInBuffer();
+    var ti=playback.getCurrentTime();
+
     ctx.clearRect(0,0,w,10);
     ctx.fillStyle="red";
     ctx.fillRect(playPos/data.length*w,0,2,10);
+    ctx.fillStyle="black";
+    ctx.fillText(Math.floor(ti*100)/100,300,10);
 
 }
 setInterval(refreshPos,16);
