@@ -70,6 +70,8 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             var rate=options.rate||1;
             t.curRate=rate;
             source.playbackRate.value = rate;
+            var volume=options.volume||1;
+            gainNode.gain.value=volume;
             t.plusTime=0;
             source.onended=function () {
                 t.isSrcPlaying=false;
