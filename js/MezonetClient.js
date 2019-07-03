@@ -160,6 +160,17 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                     }).then(function (res) {
                         var i,s=res.arysrc;
                         //console.log(reqLen,res);
+                        /*s=Float32Array.from(s);
+                        var remain=t.wdataSize-cur;
+                        if (remain>s.length) {
+                            t.bufSrc.buffer.copyToChannel(s,0,cur);
+                            cur+=s.length;
+                        } else {
+                            t.bufSrc.buffer.copyToChannel(s.slice(0,remain),0,cur);
+                            t.bufSrc.buffer.copyToChannel(s.slice(remain),0,s.length-remain);
+                            cur=s.length-remain;
+                        }
+                        t.bufSrc.buffer=t.buffer;*/
                         var svc=cur;
                         for (i=0;i<s.length;i++) {
                             data[cur]=s[i];
