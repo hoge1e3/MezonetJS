@@ -19,68 +19,86 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         $: function (t,src,options) {
             // src:MezonetClient
             //  ws:WS.Wrapper
-            t.w=new WS.Wrapper(new Worker(workerURL));
+            var pm=src.playbackMode;
+            t.playbackMode=pm;
+            switch (pm.type) {
+                case "Mezonet":
+                    if (pm.buffer && pm.worker) {
+                        t.buffer=pm.buffer;
+                        t.w=pm.worker;
+                        delete pm.buffer;
+                        delete pm.worker;
+                    } else {
+                        t.w=new WS.Wrapper(new Worker(workerURL));
+                    }
+                    break;
+                case "AudioBuffer":
+                    t.buffer=pm.buffer;
+                    break;
+            }
             t.context=src.context;
             t.mzo=src.mzo;
             t.src=src;
             t.sampleRate=t.context.sampleRate;
+            t.wdataSize=t.src.maxSamples||t.sampleRate*4;
             t.curRate=1;
             t.plusTime=0;
             t.writtenSamples=0;
-            t.wdataSize=Math.floor(t.sampleRate/2);
         },
         playNode: function (t,options) {
             if (t.isStopped) return ;
             if (this.isSrcPlaying) return;
             options=options||{};
-            var source = t.context.createBufferSource();
-            var a=[];for (var i=0;i<t.sampleRate;i++) a[i]=0;//i%500?0.2:-0.2;
-            //console.log(t.isStopped, t.isSrcPlaying,t.sampleRate,t.wdataSize,a);
-            var buffer= arrayToAudioBuffer(t.context,a,t.sampleRate);
-            source.buffer=buffer;
+            var source = this.context.createBufferSource();
+            source.buffer = t.buffer;
 
-            var scriptProcessor = this.context.createScriptProcessor(0,1,1);
-            scriptProcessor.onaudioprocess=t.refresh.bind(t);
             this.context.createGain = this.context.createGain || this.context.createGainNode;
             var gainNode = this.context.createGain();
-            scriptProcessor.connect(gainNode);
+            source.connect(gainNode);
             gainNode.connect(this.context.destination);
             t.gainNode=gainNode;
+            source.loop = t.playbackMode.type==="Mezonet";
             this.bufSrc=source;
-            source.loop=true;
-            source.connect(gainNode);
-            //source.playbackRate.value=0.5;
             source.start = source.start || source.noteOn;
-            /*var ct=t.context.currentTime;
+            //console.log("STATO",start);
+            var ct=t.context.currentTime;
             var start=options.start||ct;
             if (start<ct) start=ct;
-            this.playStartTime = start;*/
-            source.start();
+            this.playStartTime = start;
+            source.start(start);
             this.isSrcPlaying = true;
-            t.bufSrc=source;
-            t.scriptProcessor=scriptProcessor;
-            //var rate=options.rate||1;
-            //t.curRate=rate;
-            //source.playbackRate.value = rate;
+            var rate=options.rate||1;
+            t.curRate=rate;
+            source.playbackRate.value = rate;
             var volume=options.volume||1;
             gainNode.gain.value=volume;
-
+            t.plusTime=0;
+            source.onended=function () {
+                t.isSrcPlaying=false;
+            };
         },
         start:function (t,options) {
             if (t.isStopped) return Promise.resolve();
-            return t.prepareBuffer().then(function () {
+            return t.prepareBuffer(options).then(function () {
                 t.playNode(options);
-                t.startRefreshLoop();
+                return t.startRefreshLoop();
             });
         },
         getCurrentTime: function (t) {
             if (t.isStopped) return 0;
             if (t.isPaused) return t.isPaused.pausedTimeInTrack;
             var ti=this.context.currentTime- this. playStartTime;
-            //ti*=t.curRate;
-            //ti+=t.plusTime;
+            ti*=t.curRate;
+            ti+=t.plusTime;
             if (ti<0) return 0;
             return ti;
+        },
+        getCurrentSampleInBuffer: function (t) {
+            if (t.isStopped) return 0;
+            if (t.isPaused) return t.isPaused.pausedSampleInBuffer;
+            var ti=t.getCurrentTime();
+            var tiSamples=Math.floor(ti*this.sampleRate);
+            return tiSamples % t.wdataSize;
         },
         setRate: function (t,rate) {
             if (rate <= 0 || isNaN(rate)) rate = 1;
@@ -88,18 +106,9 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 t.isPaused.nextRate=rate;
                 return;
             }
-            /*t.plusTime -= (t.context.currentTime - t.playStartTime) * (rate - t.curRate);
+            t.plusTime -= (t.context.currentTime - t.playStartTime) * (rate - t.curRate);
             t.curRate = rate;
-            t.bufSrc.playbackRate.value = rate;*/
-        },
-        refresh: function (t,e) {
-            var data = e.outputBuffer.getChannelData(0);
-            var len=Math.min(data.length,t.buffer.length);
-            for (var i=0;i<len;i++) {
-                data[i]=t.buffer[i];
-            }
-            t.buffer.splice(0,len);
-            if (t.buffer.length===0) t.stop();
+            t.bufSrc.playbackRate.value = rate;
         },
         prepareBuffer: function(t) {
             //console.log("maxsamples",t.wdataSize);
@@ -109,28 +118,71 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 sampleRate:t.sampleRate,
                 maxSamples:t.wdataSize
             }).then(function (res) {
-                t.buffer=res.arysrc;
+                t.buffer=arrayToAudioBuffer(t.context,res.arysrc,t.sampleRate);
+                if (t.visualize) t.visualize(0,res.arysrc,0,res.arysrc.length);
                 t.writtenSamples+=res.arysrc.length;
                 return t.buffer;
             });
         },
         startRefreshLoop: function (t) {
-            //if (t.playbackMode.type==="AudioBuffer") return "loop not used";
+            //console.log("t.playbackMode.type",t.playbackMode.type);
+            if (t.playbackMode.type==="AudioBuffer") return "loop not used";
+            var data=t.buffer.getChannelData(0),cur=0,end,writtenEmpty=0;
             return refresh();
             function refresh() {
-                return timeout(0).then(function () {
+                return timeout(50).then(function () {
                     if (!t.isSrcPlaying) {
                         if (t.w) t.w.terminate();
                         return "stopped";
                     }
-                    var reqLen=t.wdataSize-t.buffer.length;
-                    if (reqLen<=0) return timeout(10).then(refresh);
+                    var cnt=0;
+                    var playPos=t.getCurrentSampleInBuffer();
+                    var diff=playPos-cur;
+                    var reqLen=(diff>=0 ? diff : t.wdataSize+diff );
+                    reqLen-=Math.floor(t.wdataSize*0.05);// getCurrentSampleInBufferがずれた時のための安全係数
+                    if (reqLen<0) reqLen=0;
+                    //console.log("A",cur,reqLen,end);
+                    if (end) {
+                        var svc=cur;
+                        for (var i=0;i<reqLen;i++) {
+                            data[cur]=0;
+                            cur=(cur+1)%t.wdataSize;
+                        }
+                        if (t.visualize) t.visualize(playPos,data,svc,reqLen);
+                        t.writtenSamples+=reqLen;
+                        writtenEmpty+=reqLen;
+                        if (writtenEmpty>=t.wdataSize) return t.stop();
+                        else return refresh();
+                    }
+                    if (reqLen==0) return timeout(50).then(refresh);
                     return t.w.run("MezonetJS/wavOut",{
                         maxSamples:reqLen
                     }).then(function (res) {
-                        var s=res.arysrc;
-                        t.buffer=t.buffer.concat(s);
-                        if (res.hasNext) return refresh();
+                        var i,s=res.arysrc;
+                        //console.log(reqLen,res);
+                        /*s=Float32Array.from(s);
+                        var remain=t.wdataSize-cur;
+                        if (remain>s.length) {
+                            t.bufSrc.buffer.copyToChannel(s,0,cur);
+                            cur+=s.length;
+                        } else {
+                            t.bufSrc.buffer.copyToChannel(s.slice(0,remain),0,cur);
+                            t.bufSrc.buffer.copyToChannel(s.slice(remain),0,s.length-remain);
+                            cur=s.length-remain;
+                        }
+                        t.bufSrc.buffer=t.buffer;*/
+                        var svc=cur;
+                        for (i=0;i<s.length;i++) {
+                            data[cur]=s[i];
+                            cur=(cur+1)%t.wdataSize;
+                        }
+                        if (t.visualize) t.visualize(playPos,data,svc,s.length);
+                        t.writtenSamples+=s.length;
+                        if (!res.hasNext) {
+                            end=true;
+                            t.w.terminate();
+                        }
+                        return refresh();
                     });
                 });
             }
@@ -177,10 +229,8 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         },
         stop: function (t) {
             if (t.bufSrc) t.bufSrc.stop();
-            if (t.scriptProcessor) t.scriptProcessor.disconnect();
             t.isSrcPlaying=false;
             t.isStopped=true;
-
             return "stopped";
         }
     });

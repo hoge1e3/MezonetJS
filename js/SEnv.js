@@ -350,7 +350,8 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 chn.Oct = 4;
                 chn.soundMode = False;
             }
-            t.Tempo = 120;
+            t.Tempo = 120;// changed by MML t***
+            t.pitch = 1; // changed by setRate
         },
         /*
         getBuffer: function (t) {
@@ -546,6 +547,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             var ch; //:Integer;
             t.resetChannelStates();
             t.SeqTime=0;
+            t.trackTime=0;
             for (ch = 0; ch < Chs; ch++) {
                 var chn=t.channels[ch];
                 //chn.soundMode = False;
@@ -583,6 +585,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             var wctx=t.wavoutContext;
             wctx.arysrc=allbuf;
             wctx.maxSamples=max;
+            if (typeof options.pitch==="number") t.pitch=options.pitch;
             //var sec=-1;
             var efficiency=t.wavOutSpeed||10;
             var setT=0;
@@ -836,9 +839,13 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 }
                 // End Of MMLProc
             }
-            if (wctx) wctx.writtenSamples+=length;
             t.handleAllState();
-            t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK );
+            t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK*t.pitch );
+            t.trackTime += length/t.sampleRate*t.picth;
+            if (wctx) {
+                wctx.writtenSamples+=length;
+                wctx.trackTime=t.trackTime;
+            }
             t.performance.timeForChProc+=now()-chPT;
         },
         writeSamples: function (t,data,WriteAd,length) {

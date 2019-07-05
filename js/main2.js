@@ -137,3 +137,11 @@ function refreshPos() {
 
 }
 setInterval(refreshPos,16);
+function arrayToAudioBuffer(context,arysrc,sampleRate) {
+    var buffer = context.createBuffer(1, arysrc.length, sampleRate);
+    var ary = buffer.getChannelData(0);
+    for (var i = 0; i < ary.length; i++) {
+         ary[i] = arysrc[i];
+    }
+    return buffer;
+}
