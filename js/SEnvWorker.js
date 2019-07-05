@@ -19,7 +19,7 @@ define(["SEnv","WorkerServiceW","Tones.wdt","promise"],function (SEnv, WS,wdt,_)
             p=load(params);
         }
         return p.then(function () {
-            return e.wavOut({maxSamples:params.maxSamples});
+            return e.wavOut({maxSamples:params.maxSamples,rate:params.rate});
         }).then(function (wctx) {
             delete wctx.PC2Time;
             return wctx;

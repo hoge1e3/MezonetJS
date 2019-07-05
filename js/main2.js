@@ -10,6 +10,9 @@ function (P,ww,FS,dm,MezonetClient) {
     }
     var m;
     var playback;
+    setInterval(function () {
+        if (playback) document.querySelector("#time").innerHTML=Math.floor(playback.getCurrentTime()*10)/10;
+    },100);
     window.playAsBuffer=function () {
         try {
             window.stop();
@@ -63,9 +66,9 @@ function (P,ww,FS,dm,MezonetClient) {
         document.querySelector("#perf").innerText=Math.floor(senv.performance.writeRate*10)/10;
     },1000);*/
 
-
+    listSamples();
 });
-window.onload=function () {
+function listSamples() {
     var s=document.querySelectorAll(".mml");
     var sel=document.querySelector("#samples");
     s.forEach(function (e) {

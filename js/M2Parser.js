@@ -452,7 +452,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
             int32toA(channel.buf.length,mzo);
             mzo=mzo.concat(channel.buf);
         });
-        console.log("mzo",mzo);
+        //console.log("mzo",mzo);
         return mzo;
     }
     //     var r=tokenizer.get("tokens").parseStr("1[ @com\"hoge\" c2def fg<fedc ]");

@@ -35,7 +35,6 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             options=options||{};
             var source = t.context.createBufferSource();
             var a=[];for (var i=0;i<t.sampleRate;i++) a[i]=0;//i%500?0.2:-0.2;
-            //console.log(t.isStopped, t.isSrcPlaying,t.sampleRate,t.wdataSize,a);
             var buffer= arrayToAudioBuffer(t.context,a,t.sampleRate);
             source.buffer=buffer;
 
@@ -49,22 +48,14 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             this.bufSrc=source;
             source.loop=true;
             source.connect(gainNode);
-            //source.playbackRate.value=0.5;
             source.start = source.start || source.noteOn;
-            /*var ct=t.context.currentTime;
-            var start=options.start||ct;
-            if (start<ct) start=ct;
-            this.playStartTime = start;*/
             source.start();
             this.isSrcPlaying = true;
             t.bufSrc=source;
             t.scriptProcessor=scriptProcessor;
-            //var rate=options.rate||1;
-            //t.curRate=rate;
-            //source.playbackRate.value = rate;
             var volume=options.volume||1;
             gainNode.gain.value=volume;
-
+            t.rate=1;
         },
         start:function (t,options) {
             if (t.isStopped) return Promise.resolve();
@@ -74,28 +65,23 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             });
         },
         getCurrentTime: function (t) {
-            if (t.isStopped) return 0;
-            if (t.isPaused) return t.isPaused.pausedTimeInTrack;
-            var ti=this.context.currentTime- this. playStartTime;
-            //ti*=t.curRate;
-            //ti+=t.plusTime;
-            if (ti<0) return 0;
-            return ti;
+            return t.trackTime;
         },
         setRate: function (t,rate) {
             if (rate <= 0 || isNaN(rate)) rate = 1;
-            if (t.isPaused) {
-                t.isPaused.nextRate=rate;
-                return;
-            }
-            /*t.plusTime -= (t.context.currentTime - t.playStartTime) * (rate - t.curRate);
-            t.curRate = rate;
-            t.bufSrc.playbackRate.value = rate;*/
+            t.rate=rate;
         },
         refresh: function (t,e) {
             var data = e.outputBuffer.getChannelData(0);
+            var i;
+            if (t.isPaused) {
+                for (i=0;i<data.length;i++) {
+                    data[i]=0;
+                }
+                return;
+            }
             var len=Math.min(data.length,t.buffer.length);
-            for (var i=0;i<len;i++) {
+            for (i=0;i<len;i++) {
                 data[i]=t.buffer[i];
             }
             t.buffer.splice(0,len);
@@ -126,10 +112,12 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                     var reqLen=t.wdataSize-t.buffer.length;
                     if (reqLen<=0) return timeout(10).then(refresh);
                     return t.w.run("MezonetJS/wavOut",{
-                        maxSamples:reqLen
+                        maxSamples:reqLen,
+                        rate: t.rate
                     }).then(function (res) {
                         var s=res.arysrc;
                         t.buffer=t.buffer.concat(s);
+                        t.trackTime=res.trackTime;
                         if (res.hasNext) return refresh();
                     });
                 });
@@ -143,44 +131,19 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             if (t.isStopped) return;
             if (!t.isSrcPlaying) return;
             if (t.isPaused) return;
-            t.isPaused={
-                pausedTimeInTrack: t.getCurrentTime(),
-                pausedSampleInBuffer: t.getCurrentSampleInBuffer(),
-                pausedTime: t.context.currentTime
-            };
-            t.bufSrc.stop();
-            t.bufSrc.disconnect();
+            t.isPaused=true;
         },
         resume: function (t) {
             if (t.isStopped) return;
             if (!t.isSrcPlaying) return;
             if (!t.isPaused) return;
-            var source = this.context.createBufferSource();
-            source.buffer = t.buffer;
-            source.connect(t.gainNode);
-
-            source.loop = t.playbackMode.type==="Mezonet";
-            this.bufSrc=source;
-            t.plusTime -= (t.context.currentTime-t.isPaused.pausedTime)*t.curRate;
-            source.start = source.start || source.noteOn;
-            source.playStartTime= this.context.currentTime;
-            source.start(0, t.isPaused.pausedSampleInBuffer/ t.sampleRate );
-            source.onended=function () {
-                t.isSrcPlaying=false;
-            };
-            source.playbackRate.value=t.curRate;
-            var nr=t.isPaused.nextRate;
-            delete t.isPaused;
-            if (nr) {
-                t.setRate(nr);
-            }
+            t.isPaused=false;
         },
         stop: function (t) {
             if (t.bufSrc) t.bufSrc.stop();
             if (t.scriptProcessor) t.scriptProcessor.disconnect();
             t.isSrcPlaying=false;
             t.isStopped=true;
-
             return "stopped";
         }
     });
