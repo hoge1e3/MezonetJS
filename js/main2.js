@@ -21,7 +21,7 @@ function (P,ww,FS,dm,MezonetClient) {
             m=new MezonetClient(context,mzo);
             window.m=m;
             m.init().then(function () {
-                playback=m.playAsMezonet();
+                playback=m.playAsMezonet({scriptProcessorSize:8192});
                 playback.visualize=visualize;
                 window.playback=playback;
                 return playback.start({start:context.currentTime+0, rate:1});

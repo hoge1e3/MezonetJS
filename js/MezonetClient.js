@@ -14,6 +14,8 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             setTimeout(s,t);
         });
     }
+    function now(){return new Date().getTime();}
+
     var Playback=Klass.define({
         $this:true,
         $: function (t,src,options) {
@@ -27,7 +29,10 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             t.curRate=1;
             t.plusTime=0;
             t.writtenSamples=0;
+            t.scriptProcessorSize=options.scriptProcessorSize||0;
             t.wdataSize=Math.floor(t.sampleRate/2);
+            t.processDuration=[];
+            t.lastProcessed=now();
         },
         playNode: function (t,options) {
             if (t.isStopped) return ;
@@ -38,7 +43,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             var buffer= arrayToAudioBuffer(t.context,a,t.sampleRate);
             source.buffer=buffer;
 
-            var scriptProcessor = this.context.createScriptProcessor(0,1,1);
+            var scriptProcessor = this.context.createScriptProcessor(t.scriptProcessorSize,1,1);
             scriptProcessor.onaudioprocess=t.refresh.bind(t);
             this.context.createGain = this.context.createGain || this.context.createGainNode;
             var gainNode = this.context.createGain();
@@ -50,12 +55,14 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             source.connect(gainNode);
             source.start = source.start || source.noteOn;
             source.start();
+            t.lastProcessed=now();
             this.isSrcPlaying = true;
             t.bufSrc=source;
             t.scriptProcessor=scriptProcessor;
             var volume=options.volume||1;
             gainNode.gain.value=volume;
             t.rate=1;
+            t.trackTime=0;
         },
         start:function (t,options) {
             if (t.isStopped) return Promise.resolve();
@@ -72,6 +79,9 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             t.rate=rate;
         },
         refresh: function (t,e) {
+            /*var n=now();
+            t.processDuration.push(n-t.lastProcessed);
+            t.lastProcessed=n;*/
             var data = e.outputBuffer.getChannelData(0);
             var i;
             if (t.isPaused) {
@@ -85,7 +95,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 data[i]=t.buffer[i];
             }
             t.buffer.splice(0,len);
-            if (t.buffer.length===0) t.stop();
+            if (t.hitToLast && t.buffer.length===0) t.stop();
         },
         prepareBuffer: function(t) {
             //console.log("maxsamples",t.wdataSize);
@@ -118,7 +128,11 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                         var s=res.arysrc;
                         t.buffer=t.buffer.concat(s);
                         t.trackTime=res.trackTime;
-                        if (res.hasNext) return refresh();
+                        if (res.hasNext) {
+                            return refresh();
+                        } else {
+                            t.hitToLast=true;
+                        }
                     });
                 });
             }
