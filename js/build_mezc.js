@@ -3,7 +3,7 @@
     name: 'almond',
     include: ['MezonetClient'],
     //insertRequire: ['SEnvClient'],
-    optimize:"none",//"uglify",
+    optimize:"uglify",//"uglify", "none",
     baseUrl: "..",
     wrap: {
         startFile: "func_head.txt",

@@ -3,7 +3,7 @@
     name: 'almond',
     include: ['SEnvWorker'],
     insertRequire: ['SEnvWorker'],
-    optimize:"none",//"uglify"
+    optimize:"uglify",//"uglify", "none",
     baseUrl: "..",
     /*wrap: {
         startFile: "func_head.txt",
