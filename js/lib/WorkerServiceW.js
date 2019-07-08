@@ -44,6 +44,7 @@ define(["promise","root"], function (_,root) {
         }
         try {
             Promise.resolve( paths[d.path](d.params,context) ).then(function (r) {
+                //console.log("WSW: Return ");
                 self.postMessage({
                     id:id, result:r, status:"ok"
                 });

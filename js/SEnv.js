@@ -592,6 +592,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             var writtenSamplesAtThisCall=0;
             return new Promise(function (succ) {
                 while (true) {
+                    //if (writtenSamplesAtThisCall % (grid*100)==0) console.log("WRT",writtenSamplesAtThisCall);
                     var overflow=max && writtenSamplesAtThisCall>=max-grid;
                     if (!overflow) {
                         for (var i=0;i<grid;i++) allbuf.push(0);
@@ -602,6 +603,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                     if (t.allStopped() || overflow) {
                         wctx.hasNext=overflow;
                         if (!overflow) t.wavoutContext=false;
+                        //console.log("SUCC",wctx.writtenSamples);
                         succ(wctx);
                         //console.log("setT",setT);
                         //console.log(t.performance);
@@ -913,7 +915,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
 
         }// of writeToArray
     }); // of Klass.define
-    var undefs={};
+    /*var undefs={};
     function replf(_,name) {
         //console.log(name);
         if (!defs.$fields[name]) {
@@ -929,6 +931,6 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             undefs[k]=0;
         }
     }
-    console.log(undefs);
+    console.log(undefs);*/
     return TEnveloper;
 }); // of requirejs.define

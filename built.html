@@ -14,9 +14,10 @@
             var a=Array.prototype.slice.call( new Uint8Array(e.target.result) );
             var t=new Mezonet(context,a);
             t.init().then(function () {
+                console.log("Decode end");
                 if (playback) playback.stop();
                 playback = t.playAsMezonet();
-                playback.start();                
+                playback.start();
             });
             //t.toAudioBuffer(a).then(window.playBuffer);
           };

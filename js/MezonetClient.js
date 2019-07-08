@@ -1,5 +1,22 @@
 /*global requirejs*/
 define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Klass) {
+    Promise.prototype.finally = Promise.prototype.finally || function (fn) {
+        function onFinally(cb){
+            return Promise.resolve(fn()).then(cb);
+        }
+        return this.then(
+            function (result) {
+                return onFinally(function(){
+                    return result;
+                });
+            },
+            function (reason) {
+                return onFinally(function(){
+                    return Promise.reject(reason);
+                });
+            }
+        );
+    };
     var workerURL=WorkerFactory.requireUrl("SEnvWorker");
     function arrayToAudioBuffer(context,arysrc,sampleRate) {
         var buffer = context.createBuffer(1, arysrc.length, sampleRate);
@@ -139,7 +156,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         },
         setVolume: function (t,volume) {
             volume=typeof volume==="number" ? volume:1;
-            t.gainNode.gain.value=volume;
+            if (t.gainNode) t.gainNode.gain.value=volume;
         },
         pause: function (t) {
             if (t.isStopped) return;
@@ -156,6 +173,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         stop: function (t) {
             if (t.bufSrc) t.bufSrc.stop();
             if (t.scriptProcessor) t.scriptProcessor.disconnect();
+            if (t.gainNode) t.gainNode.disconnect();
             t.isSrcPlaying=false;
             t.isStopped=true;
             return "stopped";
@@ -181,6 +199,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 sampleRate:t.sampleRate,
                 maxSamples:t.maxSamples
             }).then(function (res) {
+                //console.log("WAVoUT done",res);
                 if (res.loopStartFrac) {
                     res.loopStart=res.loopStartFrac[0]/res.loopStartFrac[1];
                 }
@@ -203,7 +222,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 }
                 t.w.terminate();
                 res.playbackMode=t.playbackMode;
-                console.log(res);
+                //console.log(res);
                 return res;
             });
         },

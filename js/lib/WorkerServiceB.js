@@ -9,6 +9,8 @@ define(["promise","Klass","root"], function (_,Klass,root) {
             t.worker=worker;
             t.readyQueue=[];
             worker.addEventListener("message",function (e) {
+                //console.log("WSB: Recv ",e.data);
+
                 var d=e.data;
                 if (d.reverse) {
                     t.procReverse(e);

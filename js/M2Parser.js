@@ -185,7 +185,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         var channels=[];
         var ChInfo;
         function selCh(ch) {
-            console.log("Select ch #",ch);
+            //console.log("Select ch #",ch);
             ChInfo=channels[ch-1];
             if (ChInfo) return ChInfo;
             ChInfo=channels[ch-1]={
@@ -254,7 +254,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
             },
             setlen: function (node) {
                 ChInfo.Len=v.visit(node[1]);
-                console.log("setlen",node,ChInfo.Len);
+                //console.log("setlen",node,ChInfo.Len);
             },
             DefaultNum: function (node) {
                 if (!node[0])return VDefault;
@@ -272,7 +272,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
             singleequ: function (node) {
                 var sa=(node[0]+"").toLowerCase();
                 var b=v.visit(node[1][0]);
-                console.log("singleequ",node, sa,b);
+                //console.log("singleequ",node, sa,b);
                 if (b!=VDefault) {
                     switch(sa) {
                         case "o":
@@ -397,7 +397,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                     ValueList[LastValue]=node[2];
                     return;
                 }
-                console.log("chs",chs);
+                //console.log("chs",chs);
 
                 chs.forEach(function (ch,i) {
                     if (!ch) return;
@@ -424,7 +424,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
             repts: function (node) {
                 var times=node[3]+""-0;
                 var expr=node[1];
-                console.log("repts",times,expr);
+                //console.log("repts",times,expr);
                 var sv=saveChInfo();
                 for (var i=0;i<times;i++) {
                     restoreChInfo(sv);
@@ -442,9 +442,9 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         channels.forEach(function (channel) {
             channel.buf=channel.buf.concat(trailer);
         });
-        console.log("channels",channels);
+        //console.log("channels",channels);
         var MPoint=channels.map(function (c) {return c.buf;});
-        console.log("MPoint",MPoint);
+        //console.log("MPoint",MPoint);
         var mzo=[];
         int32toA(Version, mzo);
         mzo.push(channels.length);
@@ -458,18 +458,18 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
     //     var r=tokenizer.get("tokens").parseStr("1[ @com\"hoge\" c2def fg<fedc ]");
     function parseMML(mml) {
         mml+="\n";
-        console.log("Input mml",mml);
+        //console.log("Input mml",mml);
         var r=tokenizer.get("tokens").parseStr(mml);
         if (!r.success) throw new Error("Syntax error(token) at "+r.src.maxRow+":"+r.src.maxCol);
         var tokens=r.result[0][0];
-        console.log("tokenr",tokens.map((e)=>e+""));
+        //console.log("tokenr",tokens.map((e)=>e+""));
         var r=parser.get("mml").parseTokens(tokens);
         if (!r.success) {
             var maxt=tokens[r.src.maxPos];
-            console.log(maxt);
+            //console.log(maxt);
             throw new Error("Syntax error at "+(maxt && maxt.row+":"+maxt.col));
         }
-        console.log("parser",r);
+        //console.log("parser",r);
         return genCode(r.result[0]);
 
     }
