@@ -107,12 +107,23 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 }
                 return;
             }
-            var len=Math.min(data.length,t.buffer.length);
-            for (i=0;i<len;i++) {
-                data[i]=t.buffer[i];
+            var len;
+            if (t.buffer.length>=data.length) {
+                len=data.length;
+                for (i=0;i<len;i++) {
+                    data[i]=t.buffer[i];
+                }
+                t.buffer.splice(0,len);
+            } else {
+                len=t.buffer.length;
+                for (i=0;i<len;i++) {
+                    data[i]=t.buffer[i];
+                }
+                for (;i<data.length;i++) {
+                    data[i]=0;
+                }
+                if (t.hitToLast) t.stop();
             }
-            t.buffer.splice(0,len);
-            if (t.hitToLast && t.buffer.length===0) t.stop();
         },
         prepareBuffer: function(t) {
             //console.log("maxsamples",t.wdataSize);
@@ -148,6 +159,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                         if (res.hasNext) {
                             return refresh();
                         } else {
+                            if (t.w) t.w.terminate();
                             t.hitToLast=true;
                         }
                     });
@@ -176,6 +188,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             if (t.gainNode) t.gainNode.disconnect();
             t.isSrcPlaying=false;
             t.isStopped=true;
+            if (t.w) t.w.terminate();
             return "stopped";
         }
     });

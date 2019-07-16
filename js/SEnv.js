@@ -206,7 +206,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                     var arrayBuffer = oReq.response,i,j;
                     if (arrayBuffer) {
                         var b = new Uint8Array(arrayBuffer);
-                        console.log("Loading wdt",b.length);
+                        //console.log("Loading wdt",b.length);
                         //WaveDat
                         var idx=0;
                         for (i = 0; i < WvC; i++) {
@@ -221,7 +221,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                                 t.EnvDat[i][j]=b[idx++];
                             }
                         }
-                        console.log("Loading wdt done");
+                        //console.log("Loading wdt done");
                         succ();
                     }
                 };

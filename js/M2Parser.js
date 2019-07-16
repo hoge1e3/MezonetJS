@@ -334,6 +334,15 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                         wrt(MLfo);wrt(lfoSync);wrt(lfov);wrt(lfoa);
                         wrt(MLfoD);wrt(lfod);
                         break;
+                        case '@dt':
+                        wrt(MDet);chkRange(b,0,127,sa);
+                        wrt(b);
+                        break;
+                        case '@dt-':
+                        wrt(MDet);chkRange(b,0,127,sa);
+                        wrt(-b);
+                        break;
+
                     }
                 } else {
                     //endwav

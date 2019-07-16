@@ -52,7 +52,7 @@ define(["promise","Klass","root"], function (_,Klass,root) {
         ready: function (t) {
             if (t.isReady) return;
             t.isReady=true;
-            console.log("Worker is ready!");
+            //console.log("Worker is ready!");
             t.readyQueue.forEach(function (f){ f();});
         },
         readyPromise: function (t) {
@@ -82,7 +82,9 @@ define(["promise","Klass","root"], function (_,Klass,root) {
             });
         },
         terminate: function (t) {
+            if (t.terminated) return;
             t.worker.terminate();
+            t.terminated=true;
         }
     });
     var paths={};
