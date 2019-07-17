@@ -41,9 +41,13 @@ function (P,ww,FS,dm,MezonetClient) {
         //window.senv.Stop();
     };
     window.wav=function wav() {
-        window.stopBufSrc();
+        //window.stopBufSrc();
         var mzo=P.parseMML(document.querySelector("#mml").value);
-        senvc.toAudioBuffer(mzo).then(function (data) {
+        if (m) m.terminate();
+        m=new MezonetClient(context,mzo);
+        window.m=m;
+        m.init({maxSamples:0}).then(function (data) {
+            //console.log(data);
             //console.log(data.decodedData.getChannelData(0));
             var wavf=ww(data.decodedData.getChannelData(0), context.sampleRate).write();
             var fn=document.querySelector("#samples").value || "test";

@@ -107,23 +107,25 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                 }
                 return;
             }
-            var len;
-            if (t.buffer.length>=data.length) {
+            var len,b=t.buffer;
+            if (b.length>=data.length) {
                 len=data.length;
                 for (i=0;i<len;i++) {
-                    data[i]=t.buffer[i];
+                    data[i]=b[i];
                 }
-                t.buffer.splice(0,len);
+                b.splice(0,len);
             } else {
-                len=t.buffer.length;
+                len=b.length;
                 for (i=0;i<len;i++) {
-                    data[i]=t.buffer[i];
+                    data[i]=b[i];
                 }
                 for (;i<data.length;i++) {
                     data[i]=0;
                 }
+                b.splice(0,len);
                 if (t.hitToLast) t.stop();
             }
+            //console.log("P",t.isStopped);
         },
         prepareBuffer: function(t) {
             //console.log("maxsamples",t.wdataSize);
@@ -135,6 +137,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             }).then(function (res) {
                 t.buffer=res.arysrc;
                 t.writtenSamples+=res.arysrc.length;
+                if (!res.hasNext) t.hitToLast=true;
                 return t.buffer;
             });
         },
@@ -143,7 +146,7 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
             return refresh();
             function refresh() {
                 return timeout(0).then(function () {
-                    if (!t.isSrcPlaying) {
+                    if (!t.isSrcPlaying || t.hitToLast) {
                         if (t.w) t.w.terminate();
                         return "stopped";
                     }
@@ -154,7 +157,8 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
                         rate: t.rate
                     }).then(function (res) {
                         var s=res.arysrc;
-                        t.buffer=t.buffer.concat(s);
+                        var b=t.buffer;
+                        b.splice.apply(b,[b.length,0].concat(s));
                         t.trackTime=res.trackTime;
                         if (res.hasNext) {
                             return refresh();
@@ -206,7 +210,8 @@ define(["WorkerFactory","WorkerServiceB","Klass"],function (WorkerFactory,WS,Kla
         },
         init: function (t,options) {
             options=options||{};
-            t.maxSamples=options.maxSamples||t.context.sampleRate*4;
+            t.maxSamples=typeof options.maxSamples==="number"?
+                options.maxSamples :t.context.sampleRate*4;
             return t.w.run("MezonetJS/wavOut",{
                 mzo:t.mzo,
                 sampleRate:t.sampleRate,
