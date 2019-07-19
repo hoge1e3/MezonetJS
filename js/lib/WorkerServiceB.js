@@ -1,17 +1,24 @@
 // Browser Side
 var idseq=0;
-define(["promise","Klass","root"], function (_,Klass,root) {
+define(["promise","Klass","root","debugPrint"],
+function (_,Klass,root,D) {
+    var idseq=1;
+    var ISREADY="WorkerService/isReady";
+    function debug() {
+        //console.log.apply(console,["WSB"].concat(Array.prototype.slice.call(arguments)));
+    }
+
     var Wrapper=Klass.define({
         $this:true,
         $: function (t,worker) {
+            t.id=idseq++;
             t.idseq=1;
             t.queue={};
             t.worker=worker;
             t.readyQueue=[];
             worker.addEventListener("message",function (e) {
-                //console.log("WSB: Recv ",e.data);
-
                 var d=e.data;
+                debug(t.id, D.shortJSON(d));
                 if (d.reverse) {
                     t.procReverse(e);
                 } else if (d.ready) {
@@ -19,9 +26,11 @@ define(["promise","Klass","root"], function (_,Klass,root) {
                 } else if (d.id) {
                     t.queue[d.id](d);
                     delete t.queue[d.id];
+                } else {
+                    console.error("WSB: Invalid data",e.data);
                 }
             });
-            t.run("WorkerService/isReady").then(function (r) {
+            t.run(ISREADY).then(function (r) {
                 if (r) t.ready();
             });
         },
@@ -32,21 +41,26 @@ define(["promise","Klass","root"], function (_,Klass,root) {
             var params=d.params;
             try {
                 Promise.resolve(paths[path](params)).then(function (r) {
-                    t.worker.postMessage({
+                    var send={
+                        path: path,
                         reverse:true,
                         status:"ok",
                         id:id,
                         result: r
-                    });
+                    };
+                    //console.log("WSB::rev",D.shortJSON(send));
+                    t.worker.postMessage(send);
                 },sendError);
             } catch(err) {
                 sendError(err);
             }
             function sendError(e) {
-                t.worker.postMessage({
+                var send={
                     reverse: true,
                     id:id, error:e?(e.stack||e+""):"unknown", status:"error"
-                });
+                };
+                console.error("WSB::err",D.shortJSON(send));
+                t.worker.postMessage(send);
             }
         },
         ready: function (t) {
@@ -62,27 +76,31 @@ define(["promise","Klass","root"], function (_,Klass,root) {
             });
         },
         run: function (t, path, params) {
-            return t.readyPromise().then(function() {
+            var p=(path===ISREADY?Promise.resolve():t.readyPromise());
+            return p.then(function() {
                 return new Promise(function (succ,err) {
-                    var id=t.idseq++;
+                    var id=t.id+":"+(t.idseq++);
                     t.queue[id]=function (e) {
-                        //console.log("Status",e);
+                        debug("Status",t.id, D.shortJSON(e));
                         if (e.status=="ok") {
                             succ(e.result);
                         } else {
                             err(e.error);
                         }
                     };
-                    t.worker.postMessage({
+                    var send={
                         id: id,
                         path: path,
                         params: params
-                    });
+                    };
+                    debug("run",D.shortJSON(send));
+                    t.worker.postMessage(send);
                 });
             });
         },
         terminate: function (t) {
             if (t.terminated) return;
+            debug("Term",t.id);
             t.worker.terminate();
             t.terminated=true;
         }

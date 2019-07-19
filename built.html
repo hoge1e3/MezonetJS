@@ -8,33 +8,41 @@
         context = new AudioContext();
     }
     function load(f) {
-        var reader = new FileReader();
-        reader.onload = (function(theFile) {
-          return function(e) {
-            var a=Array.prototype.slice.call( new Uint8Array(e.target.result) );
-            var t=new Mezonet(context,a);
-            t.init().then(function () {
-                console.log("Decode end");
-                if (playback) playback.stop();
-                playback = t.playAsMezonet();
-                playback.start();
-            });
-            //t.toAudioBuffer(a).then(window.playBuffer);
-          };
-        })(f);
-        reader.readAsArrayBuffer(f);
+        return new Promise(function (succ,err) {
+            var reader = new FileReader();
+            reader.onload = (function(theFile) {
+              return function(e) {
+                var a=Array.prototype.slice.call( new Uint8Array(e.target.result) );
+                var t=new Mezonet(context,a);
+                t.init().then(function () {
+                    console.log("Decode end");
+                    if (playback) playback.stop();
+                    playback = t.playAsMezonet();
+                    playback.start();
+                    succ();
+                }).then(function(){},err);
+                //t.toAudioBuffer(a).then(window.playBuffer);
+              };
+            })(f);
+            reader.readAsArrayBuffer(f);
+        });
     }
     function handleFileSelect(evt) {
       evt.stopPropagation();
       evt.preventDefault();
 
       var files = evt.dataTransfer.files;
-
-      for (var i = 0, f; f = files[i]; i++) {
+      console.log(files);
+      var i=0;
+      function next() {
+          var f = files[i];
+          if (!f) {console.log("All done");return;}
+          i++;
           console.log(f.name,f.type,f.size);
-          load(f);
-          break;
+          load(f).then(next,function (e){console.error(e); });
+          //break;
       }
+      next();
     }
 
     function handleDragOver(evt) {

@@ -20,6 +20,7 @@ var reqConf={
                 WorkerServiceW: 1,
                 WorkerFactory:1,
                 root:1,
+                debugPrint:1 ,
                 promise:1
             },
             main: 1,

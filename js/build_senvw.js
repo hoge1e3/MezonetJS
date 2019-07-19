@@ -3,6 +3,7 @@
     name: 'almond',
     include: ['SEnvWorker'],
     insertRequire: ['SEnvWorker'],
+    //optimize:"none",//"uglify", "none",
     optimize:"uglify",//"uglify", "none",
     baseUrl: "..",
     /*wrap: {

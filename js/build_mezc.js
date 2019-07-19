@@ -3,6 +3,7 @@
     name: 'almond',
     include: ['MezonetClient'],
     //insertRequire: ['SEnvClient'],
+    //optimize:"none",//"uglify", "none",
     optimize:"uglify",//"uglify", "none",
     baseUrl: "..",
     wrap: {
@@ -17,9 +18,6 @@
      out: function (text, sourceMapText) {
         var fs=nodeRequire("fs");
         var wsrc=fs.readFileSync("gen/MezonetWorker.js","utf8");
-        //wsrc=wsrc.replace(/\r/g,"").replace(/\n\s*/g,"\n").replace(/[ \t]+/g," "); // IS that OK? replace "  hoge   "  to " hoge "
-        //var repl="WorkerFactory.createFromString("+JSON.stringify(wsrc)+")";
-        //text=text.replace(/WorkerFactory.require\("SEnvWorker"\)/,repl);
 
         var repl=".urlFromString("+JSON.stringify(wsrc)+")";
         text=text.replace(/\.requireUrl\("SEnvWorker"\)/,repl);
