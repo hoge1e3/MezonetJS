@@ -1,4 +1,4 @@
-/* global requirejs */
+/* global requirejs,OfflineAudioContext */
 define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
     function now(){return new Date().getTime();}
     function WDT2Float(w) {return w/128-1;}
@@ -77,9 +77,10 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
         Integer = Number,
         sinMax_s = 5,
         sinMax = 65536 >> sinMax_s, //2048,
-        /*SPS = 44100,
+        SPS = 44100,
         SPS96 = 22080,
-        SPS_60 = div(44100, 60),*/
+        SPS_60 = div(44100, 60),
+        DU_SEQ="DU_SEQ", DU_TRK="DU_TRK", DU_CTX="DU_CTX",// time delta units
         DivClock = 111860.78125,// See [1]
         Loops = 163840,
 //---------End include
@@ -189,6 +190,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             for (var j=0;j<1024;j++) {
                 t.WaveDat[WvC-1][j]=WDT2Float( Math.floor(Math.random() * 78 + 90) );
             }
+            t.WaveDat[WvC-1].lambda=32;
         },
         loadWDT: function (t,url) {
             return new Promise(function (succ,fail) {
@@ -298,6 +300,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             t.SeqTime120 = 0;
             t.BeginPlay=false;
             t.InitWave();
+            t.waveBuffers={};
             t.InitEnv();
             t.InitSin();
             t.ConvM2T();
@@ -321,6 +324,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             t.WavOutObj=nil;
              {$endif}*/
             t.ComStr = '';
+            t.bufferTime=1/30;
             t.performance={timeForChProc:0, timeForWrtSmpl:0};
             //t.loadWDT();
         },
@@ -334,9 +338,11 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 chn.MCount=0;
                 chn.Resting=0;
                 chn.Steps = 0;
-                chn.SccWave = t.WaveDat[0];
+                chn.CurWav=0;
+                chn.SccWave = t.WaveDat[chn.CurWav];
                 chn.SccCount = 0;
-                chn.EShape = t.EnvDat[0];
+                chn.CurEnv=0;
+                chn.EShape = t.EnvDat[chn.CurEnv];
                 chn.EVol = 0;
                 chn.EBaseVol = 128;
                 chn.MPointC = 0;
@@ -359,28 +365,20 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             if (this.buf) return this.buf;
             this.buf = this.context.createBuffer(channel, wdataSize, this.sampleRate);
             return this.buf;
-        },
+        },*/
         playNode: function (t) {
             if (this.isSrcPlaying) return;
-            var source = this.context.createBufferSource();
-            // AudioBufferSourceNodeにバッファを設定する
-            source.buffer = this.getBuffer();
-            // AudioBufferSourceNodeを出力先に接続すると音声が聞こえるようになる
-            if (typeof source.noteOn=="function") {
-                source.noteOn(0);
-                //source.connect(this.node);
+            for (var i=0;i<Chs;i++) {
+                var chn=t.channels[i];
+                chn.gainNode=t.context.createGain();
+                chn.gainNode.connect(t.context.destination);
             }
-            source.connect(this.context.destination);
-            // 音源の再生を始める
-            source.start();
-            source.loop = true;
-            source.playStartTime = this.playStartTime = this.context.currentTime;
-            this.bufSrc=source;
             this.isSrcPlaying = true;
         },
         startRefreshLoop: function (t) {
             if (t.refreshTimer!=null) return;
-            var grid=t.resolution;
+            t.refreshTimer=setInterval(t.refreshPSG.bind(t),5);
+            /*var grid=t.resolution;
             var data=t.getBuffer().getChannelData(0);
             var WriteAd=0;
             for (var i=0;i<wdataSize;i+=grid) {
@@ -398,7 +396,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                     WriteAd=(WriteAd+grid)%wdataSize;
                 }
             }
-            t.refreshTimer=setInterval(refresh,16);
+            t.refreshTimer=setInterval(refresh,16);*/
         },
         stopRefreshLoop: function (t) {
             if (t.refreshTimer==null) return;
@@ -407,19 +405,78 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
         },
         stopNode : function (t) {
             if (!this.isSrcPlaying) return;
-            this.bufSrc.stop();
+            //this.bufSrc.stop();
+            for (var i=0;i<Chs;i++) {
+                var chn=t.channels[i];
+                if (chn.gainNode) chn.gainNode.disconnect();
+            }
             this.isSrcPlaying = false;
-        },*/
-        Play1Sound: function(t, c, n, iss) {
+        },
+        getWaveBuffer: function (t,n) {
+            if (t.waveBuffers[n]) return t.waveBuffers[n];
+            var dat=t.WaveDat[n];
+            var mult=3;
+            var buflen=dat.length << mult ;
+            var res=t.context.createBuffer(1,buflen, t.sampleRate);
+            var chd=res.getChannelData(0);
+            for (var i=0;i<buflen;i++) {
+                chd[i]=dat[i >> mult];
+            }
+            t.waveBuffers[n]=res;
+            if (dat.lambda) res.lambda=dat.lambda << mult;
+            return res;
+        },
+        Play1Sound: function(t, c, n, iss, noteOnInCtx,noteOffInCtx) {
+            // ESpeed == psX
+            // ESpeed / 65536*SPS
             var TP; //:Integer;
             var chn=t.channels[c];
-            if (chn.soundMode) return; // ) return;
+            //if (chn.soundMode) return; // ) return;
             if (n == MRest) {
                 chn.Resting = True;
                 return;
             }
             if ((c < 0) || (c >= Chs) || (n < 0) || (n > 95)) return; // ) return;
             chn.Resting = False;
+            var buf=t.getWaveBuffer(chn.CurWav);
+            var buflen=buf.getChannelData(0).length;
+            var lambda=buf.lambda||buflen;
+            var steps=m2tInt[n] + chn.Detune * div(m2tInt[n], 2048);
+            var SccCount_MAX=0x100000000;
+            var source=t.context.createBufferSource();
+            source.buffer=buf;
+            source.loop=true;
+            source.start = source.start || source.noteOn;
+            source.stop = source.stop || source.noteOff;
+            source.playbackRate.value=(steps/SccCount_MAX)*lambda;
+            //console.log(source.playbackRate.value, noteOnInCtx, noteOffInCtx);
+            //source.playbackRate.value=freq*lambda/sampleRate;  in test.html
+            //                         =freq/sampleRate*lambda
+            //                         =steps/SccCount_MAX*lambda
+            //  steps*sampleRate= SccCount_MAX*freq
+            //  steps/SccCount_MAX= freq/sampleRate
+            //   ^v^v^v^.....v^
+            //    x100          in sampleRate
+            source.connect(chn.gainNode);
+            source.start(noteOnInCtx);
+            source.stop(noteOffInCtx);
+            var envLenInCtx=1/ (chn.ESpeed / 65536*SPS/2) ;
+            var env=t.EnvDat[chn.CurEnv];
+            //console.log(env.length);
+            var envSetTime=noteOnInCtx;
+            for (var i=0;i<env.length;i++) {
+                //if (i==0) console.log(env[i]/128, noteOnInCtx+i/env.length*envLenInCtx);
+                if (envSetTime>=noteOffInCtx) break;
+                var value=env[i]/16*chn.EVol/128*chn.EBaseVol/128;
+                if (value>=0 && value<=1) {
+                    chn.gainNode.gain.setValueAtTime(value, envSetTime);
+                } else {
+                    console.error(env.length, chn.EVol, chn.EBaseVol, envSetTime);//chn.EVol/128*chn.EBaseVol/128);
+                }
+                envSetTime+=envLenInCtx/env.length;
+            }
+
+            /*
             if (!iss) {
                 chn.ECount = 0;
                 if (chn.Sync) chn.SccCount = 0;
@@ -438,7 +495,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                     chn.Steps = div(0x40000000 >>> (chn.L2WL - 2), div(m2tInt[36], 65536)) * div(m2tInt[n], 65536);
                 }
             }
-            chn.PorLen = -1;
+            chn.PorLen = -1;*/
         },
         //    procedure TEnveloper.Play1Por (c,f,t:Word;iss:Boolean);
         Play1Por: function (t,c,from,to,iss) {
@@ -536,13 +593,14 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             chn.MCount = t.SeqTime + 1;
         },
         //procedure TEnveloper.Start;
-        /*Start: function(t) {
+        Start: function(t) {
             t.Stop();
             t.Rewind();
             t.BeginPlay = True;
-            t.startRefreshLoop();
             t.playNode();
-        },*/
+            t.contextTime=t.context.currentTime+t.bufferTime;
+            t.startRefreshLoop();
+        },
         Rewind: function (t) {
             var ch; //:Integer;
             t.resetChannelStates();
@@ -556,61 +614,51 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 //chn.MCount = t.SeqTime;
             }
         },
-        /*Stop: function (t) {
+        Stop: function (t) {
             if (!t.BeginPlay) return;
             t.stopNode();
             t.stopRefreshLoop();
-        },*/
+        },
         resetWavOut: function (t) {
             t.wavoutContext=false;
         },
         wavOut: function (t,options) {
-            options=options||{};
+            var l=t.measureLength();
+            var onLine=t.context;
+            t.context=new OfflineAudioContext(1,SPS*l,SPS);
+            t.Start();
 
-            //t.Stop();
-            var buf=[];
-            var grid=t.resolution;
-            //for (var i=0;i<grid;i++) buf.push(0);
-            var allbuf=[];
-            var max=options.maxSamples;
-            if (!t.wavoutContext) {
-                t.Rewind();
-                t.wavoutContext={
-                    label2Time:[],
-                    PC2Time:[],// only ch:0;
-                    writtenSamples:0,
-                    loopStartFrac:null
-                };
+        },
+        convertDeltaTime: function(t,delta, inputUnit, outputUnit) {
+            // SeqTime     楽譜上の位置． 1/2小節 = SPS
+            // trackTime   rate=1 で演奏したときの演奏開始からの経過時間
+            //                      SeqTime*(120/t)/SPS
+            //              t=60 のとき，SeqTime*2/SPS
+            //              t=120 のとき，SeqTime/SPS
+            //              t=240 のとき，SeqTime/2/SPS
+            // contextTime     演奏開始時刻+trackTime/rate (rateが一定の場合)
+            //              rate=1 のとき ， 演奏開始時刻+trackTime
+            //              rate=2 のとき ， 演奏開始時刻+trackTime/2
+            //dSeq    = dTrack*SPS*(Tempo/120)
+            //dTrack  = dSeq*(120/Tempo)/SPS
+            //dCtx    = dTrack/rate = dSeq*(120/Tempo)/SPS/rate
+            if (inputUnit===outputUnit) return delta;
+            switch(inputUnit+2+outputUnit) {
+                case DU_SEQ+2+DU_TRK:
+                return delta*(120/t.Tempo)/SPS;
+                case DU_SEQ+2+DU_CTX:
+                return delta*(120/t.Tempo)/SPS/t.rate;
+                case DU_TRK+2+DU_CTX:
+                return delta/t.rate;
+                case DU_TRK+2+DU_SEQ:
+                return delta*SPS*(t.Tempo/120);
+                case DU_CTX+2+DU_SEQ:
+                return delta*(t.Tempo/120)*SPS*t.rate;
+                case DU_CTX+2+DU_TRK:
+                return delta*t.rate;
+                default:
+                new Error("Invalid unit conversion:"+(inputUnit+2+outputUnit));
             }
-            var wctx=t.wavoutContext;
-            wctx.arysrc=allbuf;
-            wctx.maxSamples=max;
-            if (typeof options.rate==="number") t.rate=options.rate;
-            //var sec=-1;
-            var efficiency=t.wavOutSpeed||10;
-            var setT=0;
-            var writtenSamplesAtThisCall=0;
-            return new Promise(function (succ) {
-                while (true) {
-                    //if (writtenSamplesAtThisCall % (grid*100)==0) console.log("WRT",writtenSamplesAtThisCall);
-                    var overflow=max && writtenSamplesAtThisCall>=max-grid;
-                    if (!overflow) {
-                        for (var i=0;i<grid;i++) allbuf.push(0);
-                        t.refreshPSG(allbuf,allbuf.length-grid,grid);
-                        //console.log("SeqTime",t.SeqTime);
-                        writtenSamplesAtThisCall+=grid;
-                    }
-                    if (t.allStopped() || overflow) {
-                        wctx.hasNext=overflow;
-                        if (!overflow) t.wavoutContext=false;
-                        //console.log("SUCC",wctx.writtenSamples);
-                        succ(wctx);
-                        //console.log("setT",setT);
-                        //console.log(t.performance);
-                        return;
-                    }
-                }
-            });
         },
         /*toAudioBuffer: function (t) {
             return t.wavOut().then(function (arysrc) {
@@ -667,20 +715,22 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
 
         }
         */
-        refreshPSG: function(t,data,WriteAd,length) {
-            t.procChannels(length);
-            t.writeSamples(data,WriteAd,length);
+        refreshPSG: function(t) {
+            var lengthInCtx= t.context.currentTime+t.bufferTime-t.contextTime;
+            //console.log(lengthInCtx);
+            t.procChannels(lengthInCtx);
+            //t.writeSamples(data,WriteAd,length);
         },
-        procChannels: function(t,length) {
+        procChannels: function(t,lengthInCtx) {
             var i, ch, wdtmp,LParam, HParam, WParam, JmpSafe;
             cnt++;
-            var mcountK=t.sampleRate / 22050;
-            var tempoK=44100 / t.sampleRate ;
+            //var tempoK=SPS / t.sampleRate ;
             var startTime=new Date().getTime();
             if (t.allStopped()) {
                 return;
             }
             var SeqTime=t.SeqTime,lpchk=0,chn;
+            var nextSeqTime=SeqTime+t.convertDeltaTime(lengthInCtx, DU_CTX, DU_SEQ);
             var chPT=now();
             var wctx=t.wavoutContext;
             for (ch = 0; ch < Chs; ch++) {
@@ -690,19 +740,24 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
 
 
                 JmpSafe = 0;
-
-                while (chn.MCount <= SeqTime) {
+                while (chn.MCount <= nextSeqTime) {
+                    if (chn.PlayState != psPlay) break;
                     var pc = chn.MPointC;
                     if (wctx && !wctx.maxSamples && ch==0) wctx.PC2Time[pc]=wctx.writtenSamples;
                     LParam = chn.MPoint[pc + 1];
                     HParam = chn.MPoint[pc + 2];
                     var code = chn.MPoint[pc];
                     if (code >= 0 && code < 96 || code === MRest) {
-                        t.Play1Sound(ch, code, chn.Slur);
+                        var noteOnInCtx=t.contextTime+
+                            t.convertDeltaTime(chn.MCount-SeqTime, DU_SEQ, DU_CTX);
+                        var lenInSeq=(LParam + HParam * 256) * 2;
+                        var noteOffInCtx=noteOnInCtx+
+                            t.convertDeltaTime(lenInSeq, DU_SEQ,DU_CTX) ;
+
+                        t.Play1Sound(ch, code, chn.Slur, noteOnInCtx, noteOffInCtx);
                         if (!chn.Slur) chn.LfoDC = chn.LfoD;
                         chn.Slur = False;
-                        chn.MCount +=
-                            (LParam + HParam * 256) * 2;
+                        chn.MCount +=lenInSeq ;
                         // SPS=22050の場合 *2 を *1 に。
                         // SPS=x の場合   * (x/22050)
                         chn.MPointC += 3;
@@ -748,6 +803,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                             break;
                         case MSelEnv:
                             chn.EShape = t.EnvDat[LParam];
+                            chn.CurEnv=LParam;
                             chn.MPointC += 2;
                             break;
                         case MWrtEnv:
@@ -842,12 +898,13 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 // End Of MMLProc
             }
             t.handleAllState();
-            t.SeqTime+= Math.floor( t.Tempo * (length/120) * tempoK*t.rate );
-            t.trackTime += length/t.sampleRate*t.rate;
-            if (wctx) {
+            t.SeqTime= nextSeqTime;// Math.floor( t.Tempo * (length/120) * tempoK*t.rate );
+            t.trackTime += t.convertDeltaTime(lengthInCtx  , DU_CTX, DU_TRK);// length/t.sampleRate*t.rate;
+            t.contextTime+= lengthInCtx;
+            /*if (wctx) {
                 wctx.writtenSamples+=length;
                 wctx.trackTime=t.trackTime;
-            }
+            }*/
             t.performance.timeForChProc+=now()-chPT;
         },
         writeSamples: function (t,data,WriteAd,length) {

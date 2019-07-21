@@ -1,0 +1,81 @@
+<script src="js/lib/require.js"></script>
+<script src="js/reqConf.js"></script>
+<Script>
+requirejs.config(reqConf);
+requirejs(["FS","wavWriter"],function(FS,WavWriter) {
+	const offline=true;
+	let context;
+	if (!offline) {
+	  context = new AudioContext();
+	} else {
+	  context = new OfflineAudioContext(1, 48000*1,48000);
+	}
+	let source;
+	function start() {
+	  if (source) {
+	    source.stop();
+	    source=null;
+	    return;
+	  }
+	  let sampleRate=context.sampleRate;
+	  let freq=440;
+	  let lambda=sampleRate/freq;
+	  const buflen=32;
+	  const buffer = context.createBuffer(1, buflen, sampleRate);
+	  const arysrc=buffer.getChannelData(0);
+	  for (let i=0;i<buflen;i++) {
+	    /*if (i<arysrc.length/2) {
+	     arysrc[i]=-0.1;
+	      
+	    } else {
+	     arysrc[i]=0.1;
+	      
+	    }*/
+	    arysrc[i]=0.2*i/arysrc.length-0.1;
+	    
+	  }
+	  console.log(1,arysrc.length);
+	//console.log(buffer.getChannelData(0));
+	  console.log(2,arysrc.length);
+	  source = context.createBufferSource();
+	  gain=context.createGain();
+	  gain.connect(context.destination);
+	    console.log(2.5,arysrc.length);
+	  //gain.connect(offlineCtx.destination);
+	  source.buffer=buffer;
+	    console.log(2.8,arysrc.length);
+	  source.loop=true;
+	    console.log(3,arysrc.length);
+	   source.connect(gain);
+	  source.start = source.start || source.noteOn;
+	  source.start(context.currentTime);  
+	    console.log(4,arysrc.length);
+	  source.playbackRate.value=freq*buflen/sampleRate;
+	  console.log(source.playbackRate.value);
+	  for (let i=0;i<=60;i++) {
+	     source.playbackRate.setValueAtTime(freq*buflen/sampleRate*(1+i/60),context.currentTime+i/60);
+	      gain.gain.setValueAtTime(1-i/60,context.currentTime+i/60);
+	  }
+	  //source.stop(context.currentTime+0.5);  
+	  console.log("Started",source.playbackRate.value);
+	  if (offline) {
+	     console.log("STARTRENDER",new Date().getTime());
+	     context.startRendering().then(function(renderedBuffer) {
+	        console.log("ENDEDRENDER",new Date().getTime());
+		    console.log(renderedBuffer);
+		    var d=renderedBuffer.getChannelData(0);
+		    var w=new WavWriter(d,sampleRate);
+		    var wavf=w.write();
+		    var fn="test";
+		            var dst=FS.get("/ram/"+fn+".wav");
+		            //console.log(wavf);
+		            dst.bytes(new Uint8Array(wavf).buffer);
+		            dst.download();
+		            
+		    //vconsole.log(d.slice(0,100));
+	     });
+      }
+    }
+    window.start=start;
+});
+</script><button onclick="start()">START</button>

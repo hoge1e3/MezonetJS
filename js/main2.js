@@ -1,6 +1,6 @@
 /* global webkitAudioContext, AudioContext */
-define(["M2Parser","wavWriter","FS","dragMZO","MezonetClient"],
-function (P,ww,FS,dm,MezonetClient) {
+define(["M2Parser","wavWriter","FS","dragMZO","SEnv"],
+function (P,ww,FS,dm,SEnv) {
     FS.mount("/ram/",FS.LSFS.ramDisk());
     var context;
     if (typeof (webkitAudioContext) !== "undefined") {
@@ -8,7 +8,10 @@ function (P,ww,FS,dm,MezonetClient) {
     } else if (typeof (AudioContext) !== "undefined") {
         context = new AudioContext();
     }
-    var m;
+    var senv;
+    senv=new SEnv(context);
+    senv.loadWDT();
+
     var playback;
     setInterval(function () {
         if (playback) document.querySelector("#time").innerHTML=Math.floor(playback.getCurrentTime()*10)/10;
@@ -17,26 +20,18 @@ function (P,ww,FS,dm,MezonetClient) {
         try {
             window.stop();
             var mzo=P.parseMML(document.querySelector("#mml").value);
-            if (m) m.terminate();
-            m=new MezonetClient(context,mzo);
-            window.m=m;
-            m.init().then(function () {
-                playback=m.playAsMezonet({scriptProcessorSize:8192});
-                playback.visualize=visualize;
-                window.playback=playback;
-                return playback.start({start:context.currentTime+0, rate:1});
-            }).then(function (res) {
-                console.log(res);
-            },function (e) {
-                console.error(e);
-            });
+            //if (m) m.terminate();
+            if (senv) senv.Stop();
+            senv.load(mzo);
+            window.senv=senv;
+            senv.Start();
         } catch(e) {
             console.log(e);
             alert(e);
         }
     };
     window.stop=function () {
-        if (playback) playback.stop();
+        if (senv) senv.Stop();
         //window.stopBufSrc();
         //window.senv.Stop();
     };
@@ -84,7 +79,7 @@ function listSamples() {
         selectSample(sel.value);
     });
     selectSample("Fanfare");
-};
+}
 function selectSample(name) {
     var s=document.querySelectorAll(".mml");
     s.forEach(function (e) {
