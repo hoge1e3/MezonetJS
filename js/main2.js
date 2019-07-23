@@ -38,20 +38,21 @@ function (P,ww,FS,dm,Mezonet) {
     window.wav=function wav() {
         //window.stopBufSrc();
         var mzo=P.parseMML(document.querySelector("#mml").value);
-        if (m) m.terminate();
+        var src=new Mezonet.Source(mzo);
+        playback=src.playback(context);
+        /*if (m) m.terminate();
         m=new MezonetClient(context,mzo);
-        window.m=m;
-        m.init({maxSamples:0}).then(function (data) {
+        window.m=m;*/
+        playback.wavOut().then(function (data) {
             //console.log(data);
             //console.log(data.decodedData.getChannelData(0));
-            var wavf=ww(data.decodedData.getChannelData(0), context.sampleRate).write();
+            var wavf=ww(data.decodedData.getChannelData(0), data.decodedData.sampleRate).write();
             var fn=document.querySelector("#samples").value || "test";
             var dst=FS.get("/ram/"+fn+".wav");
             //console.log(wavf);
             dst.bytes(new Uint8Array(wavf).buffer);
             dst.download();
         });
-
     };
     window.mzo=function () {
         var mzo=P.parseMML(document.querySelector("#mml").value);

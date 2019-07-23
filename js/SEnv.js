@@ -327,9 +327,9 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             t.ComStr = '';
             t.bufferTime=1/30;
             t.performance={timeForChProc:0, timeForWrtSmpl:0};
-            if (options.chdata) {
+            if (options.source) {
                 for (i=0;i<Chs;i++) {
-                    t.channels[i].MPoint=options.chdata[i];
+                    t.channels[i].MPoint=options.source.chdata[i];
                 }
             }
             if (options.WaveDat) t.WaveDat=options.WaveDat;
@@ -386,6 +386,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         },
         startRefreshLoop: function (t) {
             if (t.refreshTimer!=null) return;
+            t.refreshPSG();
             t.refreshTimer=setInterval(t.refreshPSG.bind(t),5);
             /*var grid=t.resolution;
             var data=t.getBuffer().getChannelData(0);
@@ -438,6 +439,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         Play1Sound: function(t, c, n, iss, noteOnInCtx,noteOffInCtx) {
             // ESpeed == psX
             // ESpeed / 65536*SPS
+            if (t.wavoutContext) return;
             var TP; //:Integer;
             var chn=t.channels[c];
             //if (chn.soundMode) return; // ) return;
@@ -508,6 +510,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         },
         //    procedure TEnveloper.Play1Por (c,f,t:Word;iss:Boolean);
         Play1Por: function (t,c,from,to,iss) {
+            if (t.wavoutContext) return;
              var TP=0;
              var chn=t.channels[c];
              if ((c<0)  ||  (c>=Chs)  ||  (to<0)  ||  (to>95) ||
@@ -635,12 +638,48 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         resetWavOut: function (t) {
             t.wavoutContext=false;
         },
+        measureLength: function (t) {
+            var wctx={channels:[]};
+            t.wavoutContext=wctx;
+            for (var i=0;i<Chs;i++) {
+                wctx.channels.push({PC2CtxTime:[], endCtxTime:-1, loopLengthInCtx:0} );
+            }
+            t.Rewind();
+            t.contextTime=0;
+            while(true) {
+                t.procChannels(1/60);
+                if (t.allStopped()) {
+                    break;
+                }
+            }
+            var endTime=0,loopLength=0;
+            for (i=0;i<Chs;i++) {
+                var wc=wctx.channels[i];
+                if (wc.endCtxTime>endTime) endTime=wc.endCtxTime;
+                if (wc.loopLengthInCtx>loopLength) loopLength=wc.loopLengthInCtx;
+            }
+            delete t.wavoutContext;
+            //console.log(wctx);
+            return {endTime:endTime, loopLength:loopLength};
+        },
         wavOut: function (t,options) {
             var l=t.measureLength();
+            console.log(l);
             var onLine=t.context;
-            t.context=new OfflineAudioContext(1,SPS*l,SPS);
-            t.Start();
-
+            t.context=new OfflineAudioContext(1,Math.floor(SPS*l.endTime),SPS);
+            t.Rewind();
+            t.playNode();
+            t.contextTime=0;
+            while(true) {
+                t.procChannels(1/60);
+                if (t.contextTime>=l.endTime) {
+                    break;
+                }
+            }
+            console.log(t.context);
+            return t.context.startRendering().then(function(renderedBuffer) {
+                return {decodedData:renderedBuffer, endTime:l.endTime,  loopLength: l.loopLength};
+            });
         },
         convertDeltaTime: function(t,delta, inputUnit, outputUnit) {
             // SeqTime     楽譜上の位置． 1/2小節 = SPS
@@ -756,13 +795,14 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                 while (chn.MCount <= nextSeqTime) {
                     if (chn.PlayState != psPlay) break;
                     var pc = chn.MPointC;
-                    if (wctx && !wctx.maxSamples && ch==0) wctx.PC2Time[pc]=wctx.writtenSamples;
+                    var curCtxTime=t.contextTime+
+                        t.convertDeltaTime(chn.MCount-SeqTime, DU_SEQ, DU_CTX);
+                    if (wctx) wctx.channels[ch].PC2CtxTime[pc]=curCtxTime;
                     LParam = chn.MPoint[pc + 1];
                     HParam = chn.MPoint[pc + 2];
                     var code = chn.MPoint[pc];
                     if (code >= 0 && code < 96 || code === MRest) {
-                        var noteOnInCtx=t.contextTime+
-                            t.convertDeltaTime(chn.MCount-SeqTime, DU_SEQ, DU_CTX);
+                        var noteOnInCtx=curCtxTime;
                         var lenInSeq=(LParam + HParam * 256) * 2;
                         var noteOffInCtx=noteOnInCtx+
                             t.convertDeltaTime(lenInSeq, DU_SEQ,DU_CTX) ;
@@ -829,14 +869,15 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                             }
                             break;
                         case MJmp:
-                            if (wctx && !wctx.maxSamples) {
-                                if (ch==0) {
-                                    var dstLabelPos=chn.MPointC + array2Int(chn.MPoint, pc+1);
-                                    var dstTime=wctx.PC2Time[dstLabelPos];
-                                    if (typeof dstTime=="number" && dstTime<wctx.writtenSamples) {
-                                        wctx.loopStartFrac=[dstTime, t.sampleRate];
-                                        console.log("@jump", "ofs=",wctx.loopStartFrac );
-                                    }
+                            if (wctx) {
+                                var wc=wctx.channels[ch];
+                                var dstLabelPos=chn.MPointC + array2Int(chn.MPoint, pc+1);
+                                var dstCtxTime=wc.PC2CtxTime[dstLabelPos];
+                                //console.log("@jump", "ofs=",dstCtxTime,curCtxTime );
+                                if (typeof dstCtxTime=="number" && dstCtxTime<curCtxTime) {
+                                    wc.endCtxTime=curCtxTime;
+                                    wc.loopLengthInCtx=(curCtxTime-dstCtxTime);
+                                    t.StopMML(ch);
                                 }
                                 chn.MPointC += 5;
                             } else {
@@ -900,6 +941,9 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                             chn.MPointC+=fn.length +3;
                             break;
                         case Mend:
+                            if (wctx) {
+                                wctx.channels[ch].endCtxTime=curCtxTime;
+                            }
                             t.StopMML(ch); //MPoint[ch]=nil;
                             break;
                         default:

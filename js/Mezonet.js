@@ -5,11 +5,13 @@ function (Klass,SEnv,WDT,_) {
         $this:true,
         $:function (t,array) {
             t.chdata=[];
+            t.Mezonet=Mezonet;
             t.load(array);
         },
         playback: function (t,context) {
             return new Mezonet.Playback(context, {
-                chdata:t.chdata,
+                source:t,
+                //chdata:t.chdata,
                 WaveDat:Mezonet.WDT.WaveDat,
                 EnvDat: Mezonet.WDT.EnvDat
             });
