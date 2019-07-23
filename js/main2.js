@@ -1,6 +1,6 @@
 /* global webkitAudioContext, AudioContext */
-define(["M2Parser","wavWriter","FS","dragMZO","SEnv"],
-function (P,ww,FS,dm,SEnv) {
+define(["M2Parser","wavWriter","FS","dragMZO","Mezonet"],
+function (P,ww,FS,dm,Mezonet) {
     FS.mount("/ram/",FS.LSFS.ramDisk());
     var context;
     if (typeof (webkitAudioContext) !== "undefined") {
@@ -9,29 +9,29 @@ function (P,ww,FS,dm,SEnv) {
         context = new AudioContext();
     }
     var senv;
-    senv=new SEnv(context);
-    senv.loadWDT();
-
+    Mezonet.init();
+    window.Mezonet=Mezonet;
     var playback;
     setInterval(function () {
-        if (playback) document.querySelector("#time").innerHTML=Math.floor(playback.getCurrentTime()*10)/10;
+        if (playback) document.querySelector("#time").innerHTML=Math.floor(playback.getTrackTime()*10)/10;
     },100);
     window.playAsBuffer=function () {
         try {
             window.stop();
             var mzo=P.parseMML(document.querySelector("#mml").value);
             //if (m) m.terminate();
-            if (senv) senv.Stop();
-            senv.load(mzo);
-            window.senv=senv;
-            senv.Start();
+            if (playback) playback.Stop();
+            var src=new Mezonet.Source(mzo);
+            playback=src.playback(context);
+            window.playback=playback;
+            playback.Start();
         } catch(e) {
             console.log(e);
             alert(e);
         }
     };
     window.stop=function () {
-        if (senv) senv.Stop();
+        if (playback) playback.Stop();
         //window.stopBufSrc();
         //window.senv.Stop();
     };
@@ -129,7 +129,7 @@ function refreshPos() {
     var h=cv.getAttribute("height")-0;
     var ctx=cv.getContext("2d");
     var playPos=playback.getCurrentSampleInBuffer();
-    var ti=playback.getCurrentTime();
+    var ti=playback.getTrackTime();
 
     ctx.clearRect(0,0,w,10);
     ctx.fillStyle="red";

@@ -1,5 +1,5 @@
 /* global requirejs,OfflineAudioContext */
-define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
+define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert,_,WDT) {
     function now(){return new Date().getTime();}
     function WDT2Float(w) {return w/128-1;}
     //--- Also in M2Parser
@@ -197,9 +197,10 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             try{
                 //console.log("LOading wdt...?");
                 if (!url) {
-                    requirejs(["Tones.wdt"],function (u) {
+                    /*requirejs(["Tones.wdt"],function (u) {
                         t.loadWDT(u).then(succ,fail);
-                    });
+                    });*/
+                    url=WDT;
                 }
                 var oReq = new XMLHttpRequest();
                 oReq.open("GET", url, true);
@@ -326,6 +327,14 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             t.ComStr = '';
             t.bufferTime=1/30;
             t.performance={timeForChProc:0, timeForWrtSmpl:0};
+            if (options.chdata) {
+                for (i=0;i<Chs;i++) {
+                    t.channels[i].MPoint=options.chdata[i];
+                }
+            }
+            if (options.WaveDat) t.WaveDat=options.WaveDat;
+            if (options.EnvDat) t.EnvDat=options.EnvDat;
+
             //t.loadWDT();
         },
         resetChannelStates: function (t) {
@@ -601,6 +610,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             t.contextTime=t.context.currentTime+t.bufferTime;
             t.startRefreshLoop();
         },
+        start: function (t) {return t.Start();},
         Rewind: function (t) {
             var ch; //:Integer;
             t.resetChannelStates();
@@ -618,7 +628,10 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             if (!t.BeginPlay) return;
             t.stopNode();
             t.stopRefreshLoop();
+            t.BeginPlay=false;
+            //console.log("STOP");
         },
+        stop: function (t) {return t.Stop();},
         resetWavOut: function (t) {
             t.wavoutContext=false;
         },
@@ -897,7 +910,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
                 }
                 // End Of MMLProc
             }
-            t.handleAllState();
+            if (t.handleAllState()) t.Stop();
             t.SeqTime= nextSeqTime;// Math.floor( t.Tempo * (length/120) * tempoK*t.rate );
             t.trackTime += t.convertDeltaTime(lengthInCtx  , DU_CTX, DU_TRK);// length/t.sampleRate*t.rate;
             t.contextTime+= lengthInCtx;
@@ -907,6 +920,7 @@ define("SEnv", ["Klass", "assert","promise"], function(Klass, assert,_) {
             }*/
             t.performance.timeForChProc+=now()-chPT;
         },
+        getTrackTime: function (t) {return t.trackTime;},
         writeSamples: function (t,data,WriteAd,length) {
             var i, ch, v=0, Tmporc=0,chn,ad;
             var WrtEnd=WriteAd+length;

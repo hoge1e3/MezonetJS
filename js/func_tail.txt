@@ -1,2 +1,2 @@
-    return require("MezonetClient");
+    return require("Mezonet");
 }));

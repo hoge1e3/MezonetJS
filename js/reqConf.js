@@ -31,6 +31,7 @@ var reqConf={
             //"SEnv-arrayOpt": "SEnv",
             SEnvWorker:1,
             SEnvClient:1,
+            Mezonet:1,
             MezonetClient:1,
             //SEnv: 1,
             //"SEnv-arrayOpt": 1,

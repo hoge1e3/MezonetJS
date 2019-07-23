@@ -7,20 +7,19 @@
     } else if (typeof (AudioContext) !== "undefined") {
         context = new AudioContext();
     }
+    Mezonet.init();
+    var t;
     function load(f) {
         return new Promise(function (succ,err) {
             var reader = new FileReader();
             reader.onload = (function(theFile) {
               return function(e) {
                 var a=Array.prototype.slice.call( new Uint8Array(e.target.result) );
-                var t=new Mezonet(context,a);
-                t.init().then(function () {
-                    console.log("Decode end");
-                    if (playback) playback.stop();
-                    playback = t.playAsMezonet();
-                    playback.start();
-                    succ();
-                }).then(function(){},err);
+                if (t) t.Stop();
+                var src=new Mezonet.Source(a);
+                t=src.playback(context);
+                t.Start();
+                succ();
                 //t.toAudioBuffer(a).then(window.playBuffer);
               };
             })(f);
