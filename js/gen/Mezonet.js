@@ -1148,6 +1148,12 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             t.Tempo = 120;// changed by MML t***
             t.rate = 1; // changed by setRate
         },
+        setRate:function(t,r) {
+            t.rate=r;
+        },
+        setVolume: function (t,v) {
+            if (t.masterGain) t.masterGain.gain.value=v;
+        },
         /*
         getBuffer: function (t) {
             var channel=1;
@@ -1157,10 +1163,12 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         },*/
         playNode: function (t) {
             if (this.isSrcPlaying) return;
+            t.masterGain=t.context.createGain();
+            t.masterGain.connect(t.context.destination);
             for (var i=0;i<Chs;i++) {
                 var chn=t.channels[i];
                 chn.gainNode=t.context.createGain();
-                chn.gainNode.connect(t.context.destination);
+                chn.gainNode.connect(t.masterGain);
             }
             this.isSrcPlaying = true;
         },
@@ -1200,6 +1208,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                 var chn=t.channels[i];
                 if (chn.gainNode) chn.gainNode.disconnect();
             }
+            t.masterGain.disconnect();
             this.isSrcPlaying = false;
         },
         getWaveBuffer: function (t,n) {
