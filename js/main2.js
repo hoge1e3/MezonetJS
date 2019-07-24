@@ -68,6 +68,50 @@ function (P,ww,FS,dm,Mezonet) {
     },1000);*/
 
     listSamples();
+
+    function load(f) {
+        return new Promise(function (succ,err) {
+            var reader = new FileReader();
+            reader.onload = (function(theFile) {
+              return function(e) {
+                var a=Array.prototype.slice.call( new Uint8Array(e.target.result) );
+                if (playback) playback.Stop();
+                var src=new Mezonet.Source(a);
+                playback=src.playback(context);
+                playback.Start();
+                succ();
+                //t.toAudioBuffer(a).then(window.playBuffer);
+              };
+            })(f);
+            reader.readAsArrayBuffer(f);
+        });
+    }
+    function handleFileSelect(evt) {
+      evt.stopPropagation();
+      evt.preventDefault();
+
+      var files = evt.dataTransfer.files;
+      console.log(files);
+      var i=0;
+      function next() {
+          var f = files[i];
+          if (!f) {console.log("All done");return;}
+          i++;
+          console.log(f.name,f.type,f.size);
+          load(f).then(next,function (e){console.error(e); });
+          //break;
+      }
+      next();
+    }
+
+    function handleDragOver(evt) {
+      evt.stopPropagation();
+      evt.preventDefault();
+      evt.dataTransfer.dropEffect = 'copy';
+    }
+    var dropZone = document.querySelector('body');
+    dropZone.addEventListener('dragover', handleDragOver, false);
+    dropZone.addEventListener('drop', handleFileSelect, false);
 });
 function listSamples() {
     var s=document.querySelectorAll(".mml");

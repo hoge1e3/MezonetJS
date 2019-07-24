@@ -454,12 +454,19 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             var lambda=buf.lambda||buflen;
             var steps=m2tInt[n] + chn.Detune * div(m2tInt[n], 2048);
             var SccCount_MAX=0x100000000;
-            var source=t.context.createBufferSource();
-            source.buffer=buf;
-            source.loop=true;
-            source.start = source.start || source.noteOn;
-            source.stop = source.stop || source.noteOff;
-            source.playbackRate.value=(steps/SccCount_MAX)*lambda;
+            var source=chn.sourceNode;
+            if (!iss|| !source) {
+                source=t.context.createBufferSource();
+                source.buffer=buf;
+                source.loop=true;
+                source.start = source.start || source.noteOn;
+                source.stop = source.stop || source.noteOff;
+                source.playbackRate.value=(steps/SccCount_MAX)*lambda;
+                source.connect(chn.gainNode);
+                source.start(noteOnInCtx);
+                source.stop(noteOffInCtx);
+                chn.sourceNode=source;
+            }
             //console.log(source.playbackRate.value, noteOnInCtx, noteOffInCtx);
             //source.playbackRate.value=freq*lambda/sampleRate;  in test.html
             //                         =freq/sampleRate*lambda
@@ -468,9 +475,6 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             //  steps/SccCount_MAX= freq/sampleRate
             //   ^v^v^v^.....v^
             //    x100          in sampleRate
-            source.connect(chn.gainNode);
-            source.start(noteOnInCtx);
-            source.stop(noteOffInCtx);
             if (!iss || !chn.envelopeState) {
                 chn.envelopeState={
                     lengthInCtx:1/ (chn.ESpeed / 65536*SPS/2) ,
@@ -811,8 +815,10 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                     if (code >= 0 && code < 96 || code === MRest) {
                         var noteOnInCtx=curCtxTime;
                         var lenInSeq=(LParam + HParam * 256) * 2;
+                        var slen=t.foresightSlurs(chn);
                         var noteOffInCtx=noteOnInCtx+
-                            t.convertDeltaTime(lenInSeq, DU_SEQ,DU_CTX) ;
+                            t.convertDeltaTime(lenInSeq+slen, DU_SEQ,DU_CTX) ;
+                        //if (slen>0) console.log("SL",slen);
                         t.Play1Sound(ch, code, chn.Slur, noteOnInCtx, noteOffInCtx);
                         if (!chn.Slur) chn.LfoDC = chn.LfoD;
                         chn.Slur = False;
@@ -969,6 +975,25 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                 wctx.trackTime=t.trackTime;
             }*/
             t.performance.timeForChProc+=now()-chPT;
+        },
+        foresightSlurs:function (t,chn) {
+            // 0-95 l l  MSlur  0-95 l l  MSlur  ...
+            //           ^pc
+            var pc=chn.MPointC+3;
+            var res=0; // sum of l l
+            var LParam,HParam,lenInSeq;
+            while(true) {
+                if (chn.MPoint[pc]!==MSlur) break;
+                pc++;
+                var code = chn.MPoint[pc];
+                if (!(code >= 0 && code < 96)) break;
+                LParam = chn.MPoint[pc + 1];
+                HParam = chn.MPoint[pc + 2];
+                lenInSeq=(LParam + HParam * 256) * 2;
+                res+=lenInSeq;
+                pc+=3;
+            }
+            return res;
         },
         getTrackTime: function (t) {return t.trackTime;},
         writeSamples: function (t,data,WriteAd,length) {
