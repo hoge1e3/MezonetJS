@@ -1,0 +1,78 @@
+<script src="js/lib/require.js"></script>
+<script>
+    requirejs(["js/Tones.wdt"],(WDT)=>{
+    function load(){
+        var t=this;
+        if (t.loaded) return Promise.resolve();
+        return new Promise(function (succ,fail) {
+        try{
+            var url=WDT;
+            var oReq = new XMLHttpRequest();
+            oReq.open("GET", url, true);
+            oReq.responseType = "arraybuffer";
+            oReq.onload = function (oEvent) {
+                var arrayBuffer = oReq.response,i,j;
+                if (arrayBuffer) {
+                    var b = new Uint8Array(arrayBuffer);
+                    return succ(b);
+                }
+            };
+            oReq.send(null);
+        } catch(e) {fail(e);}
+        });
+    }
+    load().then(function (a) {
+        //let a=new Uint8Array(FS.get("/Tones.wdt").bytes());
+        function enc(a) {
+            let dif=a=>{
+               let r=new Int8Array(a.length-1);
+               for(let i=0;i<r.length;i++) r[i]=a[i+1]-a[i];
+               return r;
+            };
+            let C=String.fromCharCode.bind(String);
+            let I=Math.floor.bind(Math);
+            let P=["","#","$","%","&"];
+            let enc1=a=> a.map(e=>
+                e>0? C(65+((e-1)%26))+P[I((e-1)/26)]:
+                e<0? C(97-((e+1)%26))+P[I((-e-1)/26)]:
+                "@"
+            ).join("");
+            a=dif(a);
+            a=Array.prototype.slice.call(a);
+            let en=enc1(a).replace(/@+/g, s=>s.length-1);
+            //console.log(en,en.length);
+            return en;
+        }
+        let same=(a,b)=>{
+           if(a.length!=b.length)return false;
+           for(let i=0;i<a.length;i++) if(a[i]!==b[i])return i;
+           return true;
+        };
+        let en=enc(a);
+        let de=dec(en);
+        console.log(a);
+        console.log( en );
+        console.log(de);
+        console.log( same(de,a) );
+        console.log( "("+(dec+"").replace(/\s+/g," ")+")("+JSON.stringify(en)+");")
+        function dec(e) {
+            var z=/^[0-9]+/;
+            var pm=/^[0-9]+|([A-Za-z])([#$%&]?)/;
+            var t,i,r=[],s;
+            var A=function(s){return s.charCodeAt(0);};
+            while(e.length) {
+                t=pm.exec(e);
+                if (t[1]) {
+                    s=A(t[1])>=96?-1:1;
+                    r.push(s* ( A(t[1])-(80-16*s)+(t[2]?(A(t[2])-34)*26:0) ));
+                } else for(i=t[0]-0;i>=0;i--)r.push(0);
+                e=e.substring(t[0].length);
+            }
+            var rr=new Uint8Array(r.length+1); rr[0]=80;
+            for (i=1;i<rr.length;i++) rr[i]=rr[i-1]+r[i-1];
+            return rr;
+        }
+    });
+//return new Int8Array(r);
+});
+</script>

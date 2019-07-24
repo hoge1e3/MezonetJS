@@ -33,6 +33,7 @@ var reqConf={
             SEnvClient:1,
             Mezonet:1,
             MezonetClient:1,
+            Tones2:1,
             //SEnv: 1,
             //"SEnv-arrayOpt": 1,
             M2Parser:1,

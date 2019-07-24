@@ -1,5 +1,5 @@
-define(["Klass","SEnv","Tones.wdt","promise"],
-function (Klass,SEnv,WDT,_) {
+define(["Klass","SEnv","Tones2","promise"],
+function (Klass,SEnv,WDT2,_) {
     var Mezonet={};
     Mezonet.Source=Klass.define({
         $this:true,
@@ -67,18 +67,18 @@ function (Klass,SEnv,WDT,_) {
             var t=this;
             if (t.loaded) return Promise.resolve();
             return new Promise(function (succ,fail) {
-            try{
+/*            try{
                 var url=WDT;
                 var oReq = new XMLHttpRequest();
                 oReq.open("GET", url, true);
                 oReq.responseType = "arraybuffer";
                 oReq.onload = function (oEvent) {
                     var arrayBuffer = oReq.response,i,j;
-                    if (arrayBuffer) {
-                        var b = new Uint8Array(arrayBuffer);
+                    if (arrayBuffer) {*/
+                        var b = WDT2;//new Uint8Array(arrayBuffer);
                         //console.log("Loading wdt",b.length);
                         //WaveDat
-                        var idx=0;
+                        var idx=0,i,j;
                         for (i = 0; i < WvC; i++) {
                             t.WaveDat[i]=[];
                             for (j=0;j<32;j++) {
@@ -96,11 +96,11 @@ function (Klass,SEnv,WDT,_) {
                         //console.log("Loading wdt done");
                         t.loaded=true;
                         succ();
-                    }
+/*                    }
                 };
                 oReq.send(null);
-            } catch(e) {fail(e);}
-            });
+            } catch(e) {fail(e);}*/
+        });
         }
     };
     Mezonet.init=function () {

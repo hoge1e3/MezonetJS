@@ -471,20 +471,27 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             source.connect(chn.gainNode);
             source.start(noteOnInCtx);
             source.stop(noteOffInCtx);
-            var envLenInCtx=1/ (chn.ESpeed / 65536*SPS/2) ;
-            var env=t.EnvDat[chn.CurEnv];
-            //console.log(env.length);
-            var envSetTime=noteOnInCtx;
-            for (var i=0;i<env.length;i++) {
+            if (!iss || !chn.envelopeState) {
+                chn.envelopeState={
+                    lengthInCtx:1/ (chn.ESpeed / 65536*SPS/2) ,
+                    Shape:t.EnvDat[chn.CurEnv],
+                    //console.log(env.length);
+                    setTimeInCtx:noteOnInCtx,
+                    idx:0
+                };
+            }
+            var es=chn.envelopeState;
+            for (;es.idx<es.Shape.length;es.idx++) {
+                var i=es.idx;
                 //if (i==0) console.log(env[i]/128, noteOnInCtx+i/env.length*envLenInCtx);
-                if (envSetTime>=noteOffInCtx) break;
-                var value=env[i]/16*chn.EVol/128*chn.EBaseVol/128;
-                if (value>=0 && value<=1) {
-                    chn.gainNode.gain.setValueAtTime(value, envSetTime);
+                if (es.setTimeInCtx>=noteOffInCtx) break;
+                var value=es.Shape[i]/16*chn.EVol/128*chn.EBaseVol/128;
+                if (value>=0 && value<=1 ) {
+                    chn.gainNode.gain.setValueAtTime(value, es.setTimeInCtx);
                 } else {
-                    console.error(env.length, chn.EVol, chn.EBaseVol, envSetTime);//chn.EVol/128*chn.EBaseVol/128);
+                    console.error(es, value, chn.EVol, chn.EBaseVol);//chn.EVol/128*chn.EBaseVol/128);
                 }
-                envSetTime+=envLenInCtx/env.length;
+                es.setTimeInCtx+=es.lengthInCtx/es.Shape.length;
             }
 
             /*
@@ -806,7 +813,6 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                         var lenInSeq=(LParam + HParam * 256) * 2;
                         var noteOffInCtx=noteOnInCtx+
                             t.convertDeltaTime(lenInSeq, DU_SEQ,DU_CTX) ;
-
                         t.Play1Sound(ch, code, chn.Slur, noteOnInCtx, noteOffInCtx);
                         if (!chn.Slur) chn.LfoDC = chn.LfoD;
                         chn.Slur = False;

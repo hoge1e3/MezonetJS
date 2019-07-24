@@ -150,7 +150,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         portament: [tk("@por"),tk("SoundEl"),"relocts",tk("SoundEl"),"Length"],
         stringequ: [tk("StrOption"),tk("String")],
         pcmreg: [tk("@pcm"),tk("String"),tk(","),"DefaultNum"],
-        tieslur: tk("&"),
+        tieslur: [tk("&")],
         wait: [tk("LWait")],
         setlen: [tk("LengthOption"),"Length"],
         toneshift: [tk("_"),rep0(tk("OctShift")),tk("SoundEl")],
@@ -348,6 +348,9 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                     //endwav
                     //lfo
                 }
+            },
+            tieslur: function (node) {
+                wrt(MSlur);
             },
             realsound: function (node){
                 var SoundEl=node[0]+"";

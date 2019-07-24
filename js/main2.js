@@ -37,6 +37,7 @@ function (P,ww,FS,dm,Mezonet) {
     };
     window.wav=function wav() {
         //window.stopBufSrc();
+        window.stop();
         var mzo=P.parseMML(document.querySelector("#mml").value);
         var src=new Mezonet.Source(mzo);
         playback=src.playback(context);

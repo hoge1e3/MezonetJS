@@ -18,6 +18,7 @@
                 if (t) t.Stop();
                 var src=new Mezonet.Source(a);
                 t=src.playback(context);
+                console.log("Start",t);
                 t.Start();
                 succ();
                 //t.toAudioBuffer(a).then(window.playBuffer);
