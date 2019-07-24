@@ -8,30 +8,28 @@ function (P,ww,FS,dm,Mezonet) {
     } else if (typeof (AudioContext) !== "undefined") {
         context = new AudioContext();
     }
+    window._context=context;
     var senv;
     Mezonet.init();
     window.Mezonet=Mezonet;
-    var playback;
     setInterval(function () {
-        if (playback) document.querySelector("#time").innerHTML=Math.floor(playback.getTrackTime()*10)/10;
+        if (window.playback) document.querySelector("#time").innerHTML=Math.floor(window.playback.getTrackTime()*10)/10;
     },100);
     window.playAsBuffer=function () {
         try {
             window.stop();
             var mzo=P.parseMML(document.querySelector("#mml").value);
             //if (m) m.terminate();
-            if (playback) playback.Stop();
             var src=new Mezonet.Source(mzo);
-            playback=src.playback(context);
-            window.playback=playback;
-            playback.Start();
+            window.playback=src.playback(context);
+            window.playback.Start();
         } catch(e) {
             console.log(e);
             alert(e);
         }
     };
     window.stop=function () {
-        if (playback) playback.Stop();
+        if (window.playback) window.playback.Stop();
         //window.stopBufSrc();
         //window.senv.Stop();
     };
@@ -40,11 +38,11 @@ function (P,ww,FS,dm,Mezonet) {
         window.stop();
         var mzo=P.parseMML(document.querySelector("#mml").value);
         var src=new Mezonet.Source(mzo);
-        playback=src.playback(context);
+        window.playback=src.playback(context);
         /*if (m) m.terminate();
         m=new MezonetClient(context,mzo);
         window.m=m;*/
-        playback.wavOut().then(function (data) {
+        window.playback.wavOut().then(function (data) {
             //console.log(data);
             //console.log(data.decodedData.getChannelData(0));
             var wavf=ww(data.decodedData.getChannelData(0), data.decodedData.sampleRate).write();
@@ -69,49 +67,7 @@ function (P,ww,FS,dm,Mezonet) {
 
     listSamples();
 
-    function load(f) {
-        return new Promise(function (succ,err) {
-            var reader = new FileReader();
-            reader.onload = (function(theFile) {
-              return function(e) {
-                var a=Array.prototype.slice.call( new Uint8Array(e.target.result) );
-                if (playback) playback.Stop();
-                var src=new Mezonet.Source(a);
-                playback=src.playback(context);
-                playback.Start();
-                succ();
-                //t.toAudioBuffer(a).then(window.playBuffer);
-              };
-            })(f);
-            reader.readAsArrayBuffer(f);
-        });
-    }
-    function handleFileSelect(evt) {
-      evt.stopPropagation();
-      evt.preventDefault();
 
-      var files = evt.dataTransfer.files;
-      console.log(files);
-      var i=0;
-      function next() {
-          var f = files[i];
-          if (!f) {console.log("All done");return;}
-          i++;
-          console.log(f.name,f.type,f.size);
-          load(f).then(next,function (e){console.error(e); });
-          //break;
-      }
-      next();
-    }
-
-    function handleDragOver(evt) {
-      evt.stopPropagation();
-      evt.preventDefault();
-      evt.dataTransfer.dropEffect = 'copy';
-    }
-    var dropZone = document.querySelector('body');
-    dropZone.addEventListener('dragover', handleDragOver, false);
-    dropZone.addEventListener('drop', handleFileSelect, false);
 });
 function listSamples() {
     var s=document.querySelectorAll(".mml");

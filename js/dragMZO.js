@@ -4,13 +4,9 @@ requirejs([],function () {
         reader.onload = (function(theFile) {
           return function(e) {
             var a=Array.prototype.slice.call( new Uint8Array(e.target.result) );
-            var t=window.senv;
-            t.load(a);
-            t.toAudioBuffer().then(window.playBuffer);
-
-            /*console.log(a);
-            window.senv.load(a);
-            window.senv.Start();*/
+            var t=new window.Mezonet.Source(a);
+            window.playback=t.playback(window._context );
+            window.playback.Start();
           };
         })(f);
         reader.readAsArrayBuffer(f);
