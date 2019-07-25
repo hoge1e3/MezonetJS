@@ -507,6 +507,24 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                 es.setTimeInCtx+=es.lengthInCtx/es.Shape.length;
             }
 
+            if (!iss && chn.LfoV != 0) {
+                var lfoTime=noteOnInCtx+chn.LfoD/t.Tempo;
+                //console.log(lfoTime, chn.LfoA, chn.LfoV);
+                var pitch=1/60;
+                var LfoC=0;
+                var base=source.playbackRate.value;
+                for (;lfoTime<noteOffInCtx;lfoTime+=pitch) {
+                    /*console.log(LfoC,chn.LfoV,chn.LfoA,
+                    1 + sinT[LfoC >>> (16 + sinMax_s)]/512*chn.LfoA/256);*/
+                    source.playbackRate.setValueAtTime(
+                        base*(1 + sinT[LfoC >>> (16 + sinMax_s)]/512*chn.LfoA/256),
+                        lfoTime);
+                    /*Steps += (sinT[chn.LfoC >>> (16 + sinMax_s)] *
+                            (Steps >> 9 ) * chn.LfoA)  >> 8;*/
+                    LfoC += chn.LfoV/2*pitch*SPS;
+                }
+            }
+
             /*
             if (!iss) {
                 chn.ECount = 0;
@@ -949,7 +967,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                             chn.MPointC += 4;
                             break;
                         case MLfoD:
-                            chn.LfoD = LParam * t.sampleRate;
+                            chn.LfoD = LParam;// * t.sampleRate;
                             chn.MPointC += 2;
                             break;
                         case MSync:

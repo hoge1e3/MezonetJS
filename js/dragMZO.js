@@ -5,6 +5,7 @@ requirejs([],function () {
           return function(e) {
             var a=Array.prototype.slice.call( new Uint8Array(e.target.result) );
             var t=new window.Mezonet.Source(a);
+            if (window.stop) window.stop();
             window.playback=t.playback(window._context );
             window.playback.Start();
           };
