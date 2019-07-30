@@ -252,6 +252,9 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 if (node+""==="<") ChInfo.Oct--;
                 chkRange(ChInfo.Oct,1,8,"o");
             },
+            relocts: function (node) {
+                node.forEach(function (e) {v.visit(e);});
+            },
             setlen: function (node) {
                 ChInfo.Len=v.visit(node[1]);
                 //console.log("setlen",node,ChInfo.Len);
@@ -380,6 +383,47 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 //console.log("Len",li);
                 wrt(li & 255);
                 wrt(div(li , 256));
+            },
+            portament: function (node) {
+                //console.log("POR", node);
+                var from=node[1]+"";// token cdefgab
+                var relOcts=node[2];//array of token ">" or "<"
+                var to=node[3]+"";// token cdefgab
+                var li=v.visit(node[4]) ; // length
+                var fromN=AtoG[from.charCodeAt(0)-"a".charCodeAt(0)]+ChInfo.Oct*12-12;
+                v.visit(relOcts);
+                var toN=AtoG[to.charCodeAt(0)-"a".charCodeAt(0)]+ChInfo.Oct*12-12;
+
+                wrt(MPor);
+                wrt(fromN);wrt(toN);
+                wrt(li & 255);
+                wrt(div(li , 256));
+
+                /*
+                console.log(fromN,  relOcts, toN , li);
+                sa:=PLexType(r.LItems[1]);  // SoundEl
+                tmpt:=sa^.val+ChInfo.Oct*12-12+ChInfo.ToneShift;
+                if tmpt<0 then tmpt:=0;
+                if tmpt>95 then tmpt:=95;
+                WmBuffer.Add (tmpt);
+
+                ChkLeak:=GramOnEnd (r.Items[2]);
+                if (ChkLeak<>nil) then ShowMessage ('Memory Leaked7');
+
+                sa:=PLexType(r.LItems[3]);  // SoundEl
+                tmpt:=sa^.val+ChInfo.Oct*12-12+ChInfo.ToneShift;
+                if tmpt<0 then tmpt:=0;
+                if tmpt>95 then tmpt:=95;
+                WmBuffer.Add (tmpt);
+                {if sa^.val<0 then WmBuffer.Add (MRest)
+                else WmBuffer.Add (sa^.val+ChInfo.Oct*12-12);}
+
+
+                var li=v.visit(node[4]) ; // length
+                wrt(li & 255);
+                wrt(div(li , 256));
+
+                */
             },
             ChSel: function (node) {
                 var range=[];

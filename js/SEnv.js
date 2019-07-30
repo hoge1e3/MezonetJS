@@ -445,7 +445,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             if (dat.lambda) res.lambda=dat.lambda << mult;
             return res;
         },
-        Play1Sound: function(t, c, n, iss, noteOnInCtx,noteOffInCtx) {
+        Play1Sound: function(t, c, n, iss, noteOnInCtx,noteOffInCtx,por) {
             // ESpeed == psX
             // ESpeed / 65536*SPS
             if (t.wavoutContext) return;
@@ -506,11 +506,20 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                 }
                 es.setTimeInCtx+=es.lengthInCtx/es.Shape.length;
             }
-
-            if (!iss && chn.LfoV != 0) {
+            var pitch=1/60;
+            if (por) {
+                var PorEnd=m2tInt[por]+chn.Detune*div(m2tInt[por] , 2048);
+                var rateEnd=(PorEnd/SccCount_MAX)*lambda;
+                var rateStart=source.playbackRate.value;
+                for (var porTime=noteOnInCtx+pitch;porTime<noteOffInCtx;porTime+=pitch) {
+                    var tt=(porTime-noteOnInCtx)/(noteOffInCtx-noteOnInCtx);
+                    //console.log(rateStart,rateEnd, tt, rateStart*(1-tt)+rateEnd*tt, porTime);
+                    source.playbackRate.setValueAtTime(
+                        rateStart*(1-tt)+rateEnd*tt ,porTime);
+                }
+            } else if (!iss && chn.LfoV != 0) {
                 var lfoTime=noteOnInCtx+chn.LfoD/t.Tempo;
                 //console.log(lfoTime, chn.LfoA, chn.LfoV);
-                var pitch=1/60;
                 var LfoC=0;
                 var base=source.playbackRate.value;
                 for (;lfoTime<noteOffInCtx;lfoTime+=pitch) {
@@ -838,12 +847,12 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                     if (wctx) wctx.channels[ch].PC2CtxTime[pc]=curCtxTime;
                     LParam = chn.MPoint[pc + 1];
                     HParam = chn.MPoint[pc + 2];
-                    var code = chn.MPoint[pc];
+                    var code = chn.MPoint[pc], lenInSeq,noteOnInCtx,noteOffInCtx;
                     if (code >= 0 && code < 96 || code === MRest) {
-                        var noteOnInCtx=curCtxTime;
-                        var lenInSeq=(LParam + HParam * 256) * 2;
+                        noteOnInCtx=curCtxTime;
+                        lenInSeq=(LParam + HParam * 256) * 2;
                         var slen=t.foresightSlurs(chn);
-                        var noteOffInCtx=noteOnInCtx+
+                        noteOffInCtx=noteOnInCtx+
                             t.convertDeltaTime(lenInSeq+slen, DU_SEQ,DU_CTX) ;
                         //if (slen>0) console.log("SL",slen);
                         t.Play1Sound(ch, code, chn.Slur, noteOnInCtx, noteOffInCtx);
@@ -855,18 +864,26 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                         chn.MPointC += 3;
                     } else switch (code) {
                         case MPor:
-                             t.Play1Por (ch,
+                            noteOnInCtx=curCtxTime;
+                            lenInSeq=(chn.MPoint[pc + 3]+chn.MPoint[pc + 4]*256) * 2;
+                            noteOffInCtx=noteOnInCtx+
+                                t.convertDeltaTime(lenInSeq, DU_SEQ,DU_CTX) ;
+                            //if (slen>0) console.log("SL",slen);
+                            //console.log(ch, LParam, chn.Slur, noteOnInCtx, noteOffInCtx,HParam);
+                            t.Play1Sound(ch, LParam, chn.Slur, noteOnInCtx, noteOffInCtx,HParam);
+                            chn.MCount +=lenInSeq ;
+                            /* t.Play1Por (ch,
                                LParam,
                                HParam,
                                chn.Slur
-                             );
-                             chn.Slur=False;
-                             chn.MCount+=
-                             ( chn.MPoint[pc + 3]+chn.MPoint[pc + 4]*256 )*2;
+                            );*/
+                            chn.Slur=False;
+                            /* chn.MCount+=
+                            ( chn.MPoint[pc + 3]+chn.MPoint[pc + 4]*256 )*2;
                             // SPS=22050の場合 *2 を *1 に。
-                             chn.PorLen=chn.MCount-SeqTime;
-                             chn.MPointC+=5;
-                        break;
+                            chn.PorLen=chn.MCount-SeqTime;*/
+                            chn.MPointC+=5;
+                            break;
                         case MTempo:
                             t.Tempo = LParam + HParam * 256;
                             chn.MPointC += 3;
