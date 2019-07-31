@@ -434,6 +434,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         getWaveBuffer: function (t,n) {
             if (t.waveBuffers[n]) return t.waveBuffers[n];
             var dat=t.WaveDat[n];
+            if (!dat) return;
             var mult=3;
             var buflen=dat.length << mult ;
             var res=t.context.createBuffer(1,buflen, t.sampleRate);
@@ -459,6 +460,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             if ((c < 0) || (c >= Chs) || (n < 0) || (n > 95)) return; // ) return;
             chn.Resting = False;
             var buf=t.getWaveBuffer(chn.CurWav);
+            if (!buf) return;
             var buflen=buf.getChannelData(0).length;
             var lambda=buf.lambda||buflen;
             var steps=m2tInt[n] + chn.Detune * div(m2tInt[n], 2048);
@@ -657,7 +659,8 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             t.Rewind();
             t.BeginPlay = True;
             t.playNode();
-            t.contextTime=t.context.currentTime+t.bufferTime;
+            t.playStartTime=t.context.currentTime;
+            t.contextTime=t.playStartTime;
             t.startRefreshLoop();
         },
         start: function (t) {return t.Start();},
@@ -817,8 +820,19 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         refreshPSG: function(t) {
             var lengthInCtx= t.context.currentTime+t.bufferTime-t.contextTime;
             //console.log(lengthInCtx);
-            t.procChannels(lengthInCtx);
+            if (lengthInCtx>0) t.procChannels(lengthInCtx);
             //t.writeSamples(data,WriteAd,length);
+        },
+        pause: function (t) {
+            if (t.isPaused) return;
+            t.isPaused=true;
+            t.stopRefreshLoop();
+        },
+        resume: function (t) {
+            if (!t.isPaused) return;
+            t.isPaused=false;
+            t.contextTime=t.context.currentTime;
+            t.startRefreshLoop();
         },
         procChannels: function(t,lengthInCtx) {
             var i, ch, wdtmp,LParam, HParam, WParam, JmpSafe;
