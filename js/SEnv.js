@@ -395,7 +395,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         startRefreshLoop: function (t) {
             if (t.refreshTimer!=null) return;
             t.refreshPSG();
-            t.refreshTimer=setInterval(t.refreshPSG.bind(t),5);
+            t.refreshTimer=t.Mezonet.setInterval(t.refreshPSG.bind(t),5);
             /*var grid=t.resolution;
             var data=t.getBuffer().getChannelData(0);
             var WriteAd=0;
@@ -418,7 +418,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         },
         stopRefreshLoop: function (t) {
             if (t.refreshTimer==null) return;
-            clearInterval(t.refreshTimer);
+            t.Mezonet.clearInterval(t.refreshTimer);
             delete t.refreshTimer;
         },
         stopNode : function (t) {
