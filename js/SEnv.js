@@ -600,9 +600,10 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             return true;
         },
         handleAllState: function (t) {
-            var allWait=true,allStop=true,i;
+            var allWait=true,allStop=true,i,endCtxTime=0;
             for(i=0;i<Chs;i++) {
-                switch (t.channels[i].PlayState) {
+                var c=t.channels[i];
+                switch (c.PlayState) {
                 case psPlay:
                     allWait=false;
                     allStop=false;
@@ -610,6 +611,12 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                 case psWait:
                     allStop=false;
                     break;
+                case psStop:
+                    if (typeof c.endCtxTime==="number") {
+                        if (c.endCtxTime>endCtxTime) {
+                            endCtxTime=c.endCtxTime;
+                        }
+                    }
                 }
             }
             //          alw     als
@@ -625,7 +632,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                     t.RestartMML(i);
                 }
             }
-            return allStop;
+            return allStop ? {endCtxTime} : false;
         },
         allStopped: function (t) {
             for(var i=0;i<Chs;i++) {
@@ -845,9 +852,9 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             cnt++;
             //var tempoK=SPS / t.sampleRate ;
             var startTime=new Date().getTime();
-            if (t.allStopped()) {
+            /*if (t.allStopped()) {
                 return;
-            }
+            }*/
             var SeqTime=t.SeqTime,lpchk=0,chn;
             var nextSeqTime=SeqTime+t.convertDeltaTime(lengthInCtx, DU_CTX, DU_SEQ);
             var chPT=now();
@@ -1020,6 +1027,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                             if (wctx) {
                                 wctx.channels[ch].endCtxTime=curCtxTime;
                             }
+                            chn.endCtxTime=curCtxTime;
                             t.StopMML(ch); //MPoint[ch]=nil;
                             break;
                         default:
@@ -1030,7 +1038,11 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                 }
                 // End Of MMLProc
             }
-            if (t.handleAllState()) t.Stop();
+            const stopTiming=t.handleAllState();
+            if (stopTiming) {
+                if (t.context.currentTime>stopTiming.endCtxTime) t.Stop();
+                //else console.log(t.context.currentTime,stopTiming);
+            }
             t.SeqTime= nextSeqTime;// Math.floor( t.Tempo * (length/120) * tempoK*t.rate );
             t.trackTime += t.convertDeltaTime(lengthInCtx  , DU_CTX, DU_TRK);// length/t.sampleRate*t.rate;
             t.contextTime+= lengthInCtx;
