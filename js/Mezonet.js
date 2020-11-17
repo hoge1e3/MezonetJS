@@ -8,13 +8,13 @@ function (Klass,SEnv,WDT2,_) {
             t.Mezonet=Mezonet;
             t.load(array);
         },
-        playback: function (t,context) {
-            return new Mezonet.Playback(context, {
+        playback: function (t,context,options={}) {
+            return new Mezonet.Playback(context, Object.assign(options,{
                 source:t,
                 //chdata:t.chdata,
                 WaveDat:Mezonet.WDT.WaveDat,
                 EnvDat: Mezonet.WDT.EnvDat
-            });
+            }));
         },
         load:function (t,d) {
             var ver=readLong(d);

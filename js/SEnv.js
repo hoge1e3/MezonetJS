@@ -120,6 +120,12 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         sinT = [], //:array [0..sinMAX-1] of ShortInt;
         TTL, //:Integer;
         cnt=0; //:Integer;// debug
+    function defaultBufferTime() {
+        if (window.navigator.userAgent.match(/Android/)) {
+            return 1/2;
+        }
+        return 1/30;
+    }
     var defs;
     var TEnveloper = Klass.define(defs={ //class (TSoundGenerator)
         $this: true,
@@ -142,7 +148,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             //L2WL: log 2 WaveLength
             PCMW: Array, // [0..PCMWavs-1] of TWavLoader,
 
-            Delay: Integer,
+            //Delay: Integer,
 
             Tempo: Integer,
             ComStr: String,
@@ -296,7 +302,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             //t.initNode({});
             //t.WavPlaying=false;
             // inherited Create (Handle);
-            t.Delay = 2000;
+            //t.Delay = 2000;
             t.Pos = t.PrevPos = t.RPos = /*t.WriteAd =*/ t.SeqTime =
             t.SeqTime120 = 0;
             t.BeginPlay=false;
@@ -316,7 +322,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             }
             t.resetChannelStates();
             t.Fading = FadeMax;
-            t.timeLag = 2000;
+            //t.timeLag = 2000;
 
             t.WriteMaxLen = 20000;
             t.wavoutContext = False;
@@ -325,7 +331,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             t.WavOutObj=nil;
              {$endif}*/
             t.ComStr = '';
-            t.bufferTime=1/30;
+            t.bufferTime=options.bufferTime || defaultBufferTime();
             t.performance={timeForChProc:0, timeForWrtSmpl:0};
             if (options.source) {
                 for (i=0;i<Chs;i++) {
