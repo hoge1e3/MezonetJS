@@ -105,8 +105,8 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         "Periods": /^\.+/,
         "StrOption":or("'@com","'@wavout"),
         "SingleOption":or("'@endwav","'@dt-","'@si","'@so",
-        "'@dt","'@label","'@jump","'@lfo","'@sync","'@v"
-        ,"'o","'v=+","'v=-","'v","'n","'pm","'@","'t","'q","'ps","'pa"),
+        "'@dt","'@label","'@jump","'@lfo","'@sync","'@v",
+        "'o","'v=+","'v=-","'v","'n","'pm","'@","'t","'q","'ps","'pa"),
         "LengthOption": "'l",
         //or("'","'","'","'","'","'","'","'","'","'","'","'"),
         "OctShift": /^[<>]/,
@@ -126,7 +126,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         "{":1,
         "}":1,
         "_":1,
-        "z":1
+        "z":/^[zZ]/,
     });
     var parser=new Grammar();
     var tk=Grammar.P.TokensParser.token;
@@ -143,7 +143,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         ChRange: [tk("Num"),opt([tk("-"),tk("Num")])],
         Exs: rep0(or("replace","realsound","renpu","portament",
         "singleequ","stringequ","pcmreg",
-        "tieslur","wait","reloct","setlen","toneshift","repts")),
+        "tieslur","wait","reloct","setlen","toneshift","repts","z")),
         replace: [tk("Value")],
         singleequ: [tk("SingleOption"),sep1("DefaultNum",tk(","))],
         renpu: [tk("{"),rep0(tk("SoundEl"),"relocts"),tk("}")],
@@ -159,7 +159,8 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         relocts: rep0("reloct"),
         realsound: [tk("SoundEl"),"Length"],
         Length: ["DefaultNum",opt(tk("Periods"))],
-        "DefaultNum": [opt(tk("Num"))]
+        "DefaultNum": [opt(tk("Num"))],
+        z: [tk("z"),tk("SingleOption"),tk("Num"), rep0([tk(","), tk("Num")]) ],
     });
     function int16toA(num,a) {
         a=a||[];
@@ -195,7 +196,8 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 Len:div(SPS96,4),
                 Lbf:[],
                 Lbl:[],
-                VolShift:0
+                VolShift:0,
+                toneShift:0,
             };
             return ChInfo;
         }
@@ -239,8 +241,32 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
             if (val>=min && val<=max) return val;
             throw new Error("Out of range for "+mesg+": "+val);
         }
+        function parseRealsound(saval,ChInfo) {
+            let res=AtoG[saval.charCodeAt(0)-
+            "a".charCodeAt(0)]+
+            ChInfo.Oct*12-12+ChInfo.toneShift;
+            for (var i=0;i<saval.length;i++) {
+                switch (saval[i]) {
+                case "+":case "#": res++;break;
+                case "-":res--;break;
+                }
+            }
+            chkRange(res, 0, 95, "tone");
+            return res;
+        }
         var LastValue,ValueList={},ValDepth=0;
         var v=Visitor({
+            toneshift: function (node) {
+                const oct=node[1].map(e=>e[0]);
+                const real=node[2][0];
+                let r=parseRealsound(real, ChInfo);
+                for (let o of oct) {
+                    if (o===">") r+=12;
+                    if (o==="<") r-=12;
+                }
+                ChInfo.toneShift=r-(ChInfo.Oct-1)*12;
+                //console.log(ChInfo.toneShift);
+            },
             mml: function (node) {
                 node[0].forEach(function (n) {
                     v.visit(n);
@@ -367,16 +393,17 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                         wrt(ChInfo.PrevRealSnd);
                         break;
                     default:
-                        ChInfo.PrevRealSnd=
-                        AtoG[saval.charCodeAt(0)-
+                        ChInfo.PrevRealSnd=parseRealsound(saval, ChInfo);
+                        /*AtoG[saval.charCodeAt(0)-
                         "a".charCodeAt(0)]+
-                        ChInfo.Oct*12-12;
+                        ChInfo.Oct*12-12+ChInfo.toneShift;
                         for (var i=0;i<saval.length;i++) {
                             switch (saval[i]) {
                             case "+":case "#": ChInfo.PrevRealSnd++;break;
                             case "-":ChInfo.PrevRealSnd--;break;
                             }
                         }
+                        chkRange(ChInfo.PrevRealSnd,0,95,"tone");*/
                         wrt(ChInfo.PrevRealSnd);
                 }
                 var li=v.visit(node[1]) ;
@@ -384,15 +411,30 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 wrt(li & 255);
                 wrt(div(li , 256));
             },
+            z: function (node) {
+                //console.log("z",node);
+                const idx=node[2][0]-0;
+                chkRange(idx, 0,95, "z@n");
+                const wave=node[3];
+                wrt(MWrtWav);
+                wrt(idx);
+                //console.log("z@",idx);
+                for (let i=0; i<32;i++) {
+                    if (!wave[i]) wrt(128);
+                    else wrt(wave[i][1]-0);
+                }
+            },
             portament: function (node) {
                 //console.log("POR", node);
                 var from=node[1]+"";// token cdefgab
                 var relOcts=node[2];//array of token ">" or "<"
                 var to=node[3]+"";// token cdefgab
                 var li=v.visit(node[4]) ; // length
-                var fromN=AtoG[from.charCodeAt(0)-"a".charCodeAt(0)]+ChInfo.Oct*12-12;
+                var fromN=parseRealsound(from,ChInfo);// AtoG[from.charCodeAt(0)-"a".charCodeAt(0)]+ChInfo.Oct*12-12+ChInfo.toneShift;
+                //chkRange(fromN,0,95,"@por from");
                 v.visit(relOcts);
-                var toN=AtoG[to.charCodeAt(0)-"a".charCodeAt(0)]+ChInfo.Oct*12-12;
+                var toN=parseRealsound(to,ChInfo);//AtoG[to.charCodeAt(0)-"a".charCodeAt(0)]+ChInfo.Oct*12-12+ChInfo.toneShift;
+                //chkRange(toN,0,95,"@por to");
 
                 wrt(MPor);
                 wrt(fromN);wrt(toN);
@@ -515,13 +557,14 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
     function parseMML(mml) {
         mml+="\n";
         //console.log("Input mml",mml);
-        var r=tokenizer.get("tokens").parseStr(mml);
+        let r;
+        r=tokenizer.get("tokens").parseStr(mml);
         if (!r.success) throw new Error("Syntax error(token) at "+r.src.maxRow+":"+r.src.maxCol);
-        var tokens=r.result[0][0];
+        const tokens=r.result[0][0];
         //console.log("tokenr",tokens.map((e)=>e+""));
-        var r=parser.get("mml").parseTokens(tokens);
+        r=parser.get("mml").parseTokens(tokens);
         if (!r.success) {
-            var maxt=tokens[r.src.maxPos];
+            const maxt=tokens[r.src.maxPos];
             //console.log(maxt);
             throw new Error("Syntax error at "+(maxt && maxt.row+":"+maxt.col));
         }
@@ -529,6 +572,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         return genCode(r.result[0]);
 
     }
+
     //parseMML("1-3,5[ c2 def8 ]");
     return {
         parseMML:parseMML
