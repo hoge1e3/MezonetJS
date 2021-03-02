@@ -950,14 +950,14 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                             }
                             break;
                         case MWrtWav2:
-                            const len=HParam;
-                            const l=chn.MPoint[pc + 3];// reserved, 1
+                            const len=HParam+chn.MPoint[pc+3]*256;
+                            const l=chn.MPoint[pc + 4];// reserved, 1
                             const wd=[];
                             for (i = 0; i < len; i++) {
-                                wd.push(WDT2Float(chn.MPoint[pc+4+i]));
+                                wd.push(WDT2Float(chn.MPoint[pc+5+i]));
                             }
                             t.WaveDat[LParam]=wd;
-                            chn.MPointC += len+4; // MWrtWav2 wavno len l data*len
+                            chn.MPointC += len+5; // MWrtWav2 wavno lenL lenH l data*len
                             break;
                         case MSelEnv:
                             chn.EShape = t.EnvDat[LParam];

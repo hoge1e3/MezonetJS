@@ -423,7 +423,8 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
                 const f=zfmExpr(expr);
                 wrt(MWrtWav2);
                 wrt(idx);
-                wrt(len);
+                wrt(len & 255);
+                wrt(len>>8);
                 wrt(1); // l=1, reserved.  lamda=len/l
                 for (let i=0; i<len;i++) {
                     wrt(f(i/len)*128+128);
