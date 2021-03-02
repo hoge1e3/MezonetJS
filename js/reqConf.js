@@ -28,6 +28,7 @@ var reqConf={
             test:1,
             dragMZO: 1,
             SEnv: 1,//"SEnv-old",
+            zfmExpr: 1,
             //"SEnv-arrayOpt": "SEnv",
             SEnvWorker:1,
             SEnvClient:1,

@@ -1,4 +1,4 @@
-define(["Grammar","Visitor"],function (Grammar,Visitor) {
+define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
 //--- Also in SEnv
     var Ses = 10,
         Chs = 10,
@@ -29,6 +29,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         MLfoD = 118,
         MBaseVol = 119,
         MLabel = 120,
+        MWrtWav2 =121,
 
         Mend = 255,
 
@@ -94,7 +95,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
     var rep0=tokenizer.rep0;
     //var singleTokens="[](){},_z";
     tokenizer.def({
-        tokens: [rep0(or("-","&",/*";",*/"[","]","(",")","{","}","_","z",",",
+        tokens: [rep0(or("-","&",/*";",*/"[","]","(",")","{","}","_","zfm","z",",",
         "LWait","SoundEl","Num","Periods","@por","@pcm","StrOption",
         "SingleOption","LengthOption","OctShift","Value","String"
         )),/^\s*/,
@@ -127,6 +128,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         "}":1,
         "_":1,
         "z":/^[zZ]/,
+        "zfm":/^zfm/,
     });
     var parser=new Grammar();
     var tk=Grammar.P.TokensParser.token;
@@ -143,7 +145,7 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         ChRange: [tk("Num"),opt([tk("-"),tk("Num")])],
         Exs: rep0(or("replace","realsound","renpu","portament",
         "singleequ","stringequ","pcmreg",
-        "tieslur","wait","reloct","setlen","toneshift","repts","z")),
+        "tieslur","wait","reloct","setlen","toneshift","repts","zfm","z")),
         replace: [tk("Value")],
         singleequ: [tk("SingleOption"),sep1("DefaultNum",tk(","))],
         renpu: [tk("{"),rep0(tk("SoundEl"),"relocts"),tk("}")],
@@ -160,7 +162,8 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
         realsound: [tk("SoundEl"),"Length"],
         Length: ["DefaultNum",opt(tk("Periods"))],
         "DefaultNum": [opt(tk("Num"))],
-        z: [tk("z"),tk("SingleOption"),tk("Num"), rep0([tk(","), tk("Num")]) ],
+        z: [tk("z"),tk("SingleOption"),tk("Num"), rep0([tk(","), tk("Num")])],
+        zfm: [tk("zfm"),tk("SingleOption"),tk("Num"), tk(","), tk("Num"), tk(","), tk("String")],
     });
     function int16toA(num,a) {
         a=a||[];
@@ -202,16 +205,15 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
             return ChInfo;
         }
         function fillLabels() {
-            var i=0;
-            for (var i=0;i<Chs;i++) {
+            for (let i=0;i<Chs;i++) {
                 var ChInfo=channels[i];
-                ChInfo.Lbf.forEach(function (LbElem) {
+                for (let LbElem of ChInfo.Lbf) {
                     var ofs=ChInfo.Lbl[LbElem.LbNum]-LbElem.Pos;
                     var repl=int32toA(ofs);
                     var WmBuffer=ChInfo.buf;
                     WmBuffer.splice.apply(WmBuffer,
                         [LbElem.Pos+1,4].concat(repl));
-                });
+                }
             }
         }
         function saveChInfo() {
@@ -410,6 +412,22 @@ define(["Grammar","Visitor"],function (Grammar,Visitor) {
                 //console.log("Len",li);
                 wrt(li & 255);
                 wrt(div(li , 256));
+            },
+            zfm: function (node) {
+                //console.log("z",node);
+                const idx=node[2][0]-0;
+                chkRange(idx, 0,95, "z@n");
+                const len=node[4][0]-0;
+                const expr=node[6][0].replace(/\"/g,"");
+                //console.log("zfm",idx,len, expr);
+                const f=zfmExpr(expr);
+                wrt(MWrtWav2);
+                wrt(idx);
+                wrt(len);
+                wrt(1); // l=1, reserved.  lamda=len/l
+                for (let i=0; i<len;i++) {
+                    wrt(f(i/len)*128+128);
+                }
             },
             z: function (node) {
                 //console.log("z",node);
