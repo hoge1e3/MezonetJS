@@ -163,7 +163,7 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
         Length: ["DefaultNum",opt(tk("Periods"))],
         "DefaultNum": [opt(tk("Num"))],
         z: [tk("z"),tk("SingleOption"),tk("Num"), rep0([tk(","), tk("Num")])],
-        zfm: [tk("zfm"),tk("SingleOption"),tk("Num"), tk(","), tk("Num"), tk(","), tk("String")],
+        zfm: [tk("zfm"),tk("SingleOption"),tk("Num"), tk(","), tk("Num"), opt([tk(","), tk("Num")]), tk(","), tk("String")],
     });
     function int16toA(num,a) {
         a=a||[];
@@ -414,20 +414,24 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
                 wrt(div(li , 256));
             },
             zfm: function (node) {
+                //    0               1             2           3        4                 5                6          7
+                //[tk("zfm"),tk("SingleOption"),tk("Num"), tk(","), tk("Num"), opt([tk(","), tk("Num")]), tk(","), tk("String")],
                 //console.log("z",node);
                 const idx=node[2][0]-0;
                 chkRange(idx, 0,95, "z@n");
-                const len=node[4][0]-0;
-                const expr=node[6][0].replace(/\"/g,"");
+                const lambda=node[4][0]-0;
+                const mul=node[5] ? node[5][1][0]-0 : 1;
+                const len=lambda*mul;
+                const expr=node[7][0].replace(/\"/g,"");
                 //console.log("zfm",idx,len, expr);
                 const f=zfmExpr(expr);
                 wrt(MWrtWav2);
                 wrt(idx);
-                wrt(len & 255);
-                wrt(len>>8);
-                wrt(1); // l=1, reserved.  lamda=len/l
+                wrt(lambda & 255);
+                wrt(lambda>>8);
+                wrt(mul); // lamda*m=len
                 for (let i=0; i<len;i++) {
-                    wrt(f(i/len)*128+128);
+                    wrt(f(i/lambda)*128+128);
                 }
             },
             z: function (node) {
