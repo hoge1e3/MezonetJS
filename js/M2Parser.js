@@ -595,7 +595,7 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
         return genCode(r.result[0]);
 
     }
-
+    window.zfmExpr=zfmExpr;
     //parseMML("1-3,5[ c2 def8 ]");
     return {
         parseMML:parseMML

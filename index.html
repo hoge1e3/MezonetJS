@@ -7,6 +7,7 @@
 <title>MezonetJS</title>
 <script src="js/lib/require.js"></script>
 <script src="js/reqConf.js"></script>
+<script src="js/fm/fmEditor.js"></script>
 <script>
 requirejs.config(reqConf);
 requirejs(["main2"],function(){})
@@ -16,6 +17,14 @@ requirejs(["main2"],function(){})
 <body>
 <H1>Enter MML Here</h1>
 
+<div id="wavEditor">
+    <div>
+        @<input id="wavNo" value="0"/> 
+        <!--input id="wavElems" value="256"/> Elements-->
+    </div>
+    <canvas id="wavForm" width=600 height=100></canvas>
+    <textarea id="zcmd" rows=4 cols=20></textarea>
+</div>
 <div><select id="samples">
 </select></div>
 <div><textarea id="mml" rows=20 cols=80>
