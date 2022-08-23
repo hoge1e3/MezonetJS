@@ -1181,7 +1181,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             if (this.isSrcPlaying) return;
             options=options||{};
             t.masterGain=t.context.createGain();
-            t.masterGain.connect(t.context.destination);
+            t.masterGain.connect(options.destination || t.context.destination);
             for (var i=0;i<Chs;i++) {
                 var chn=t.channels[i];
                 chn.gainNode=t.context.createGain();
