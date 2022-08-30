@@ -19,6 +19,7 @@ function (Klass,SEnv,WDT2,_) {
         load:function (t,d) {
             var ver=readLong(d);
             var chs=readByte(d);
+            t.version=ver;
             //var chdatas;
             //t.MPoint=chdatas=[];
             for (var i=0;i<chs;i++) {

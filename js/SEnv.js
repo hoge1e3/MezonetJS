@@ -89,8 +89,8 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         Integer = Number,
         sinMax_s = 5,
         sinMax = 65536 >> sinMax_s, //2048,
-        SPS = 44100,
-        SPS96 = 22080,
+        SPS = 22160*2,
+        SPS96 = 22160,
         SPS_60 = div(44100, 60),
         DU_SEQ="DU_SEQ", DU_TRK="DU_TRK", DU_CTX="DU_CTX",// time delta units
         DivClock = 111860.78125,// See [1]
@@ -176,6 +176,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             if (ver>1200) {
                 t.useMLen=true;
             }
+            console.log("Version ", ver);
             var chs=readByte(d);
             //var chdatas;
             //t.MPoint=chdatas=[];
@@ -351,6 +352,11 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             if (options.source) {
                 for (i=0;i<Chs;i++) {
                     t.channels[i].MPoint=options.source.chdata[i];
+                }
+                t.version=options.source.version;
+                console.log("Version", t.version);
+                if (t.version>1200) {
+                    t.useMLen=true;
                 }
             }
             if (options.WaveDat) t.WaveDat=options.WaveDat;
@@ -899,21 +905,12 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                     LParam = chn.MPoint[pc + 1];
                     HParam = chn.MPoint[pc + 2];
                     var code = chn.MPoint[pc], lenInSeq,noteOnInCtx,noteOffInCtx;
+                    //console.log(ch  , code);
                     if (code >= 0 && code < 96 || code === MRest) {
                         noteOnInCtx=curCtxTime;
-                        let increment=3;
-                        if (t.useMLen) {
-                            if (LParam===MLenMark) {
-                                lenInSeq=(chn.MPoint[pc + 2]+chn.MPoint[pc + 3]*256) * 2;
-                                increment=4;
-                            } else {
-                                lenInSeq=chn.DefLen;
-                                increment=1;
-                            }
-                        } else {
-                            lenInSeq=(LParam + HParam * 256) * 2;
-                        }
-                        var slen=t.foresightSlurs(chn);
+                        let {lenInSeq, increment}=t.parseLen(chn, pc);
+                        console.log(lenInSeq, SPS96/lenInSeq, increment);
+                        var slen=t.foresightSlurs(chn, pc+increment);
                         noteOffInCtx=noteOnInCtx+
                             t.convertDeltaTime(lenInSeq+slen, DU_SEQ,DU_CTX) ;
                         //if (slen>0) console.log("SL",slen);
@@ -1107,22 +1104,39 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
             }*/
             t.performance.timeForChProc+=now()-chPT;
         },
-        foresightSlurs:function (t,chn) {
-            // 0-95 l l  MSlur  0-95 l l  MSlur  ...
-            //           ^pc
-            var pc=chn.MPointC+3;
-            var res=0; // sum of l l
+        parseLen(t,chn,pc) {
+            //  0-95 <len>    
+            //  ^pc
+            // <len> := MLenMark <len16> | empty
+            let LParam=chn.MPoint[pc+1];
+            let HParam=chn.MPoint[pc+2];
+            let lenInSeq, increment=3;
+            if (t.useMLen) {
+                if (LParam===MLenMark) {
+                    lenInSeq=(HParam+chn.MPoint[pc + 3]*256) * 2;
+                    increment=4;
+                } else {
+                    lenInSeq=chn.DefLen;
+                    increment=1;
+                }
+            } else {
+                lenInSeq=(LParam + HParam * 256) * 2;
+            }
+            return {lenInSeq, increment};
+        },
+        foresightSlurs:function (t,chn, pc) {
+            // 0-95 <len> MSlur  0-95 <len>  MSlur  ...
+            //            ^pc
+            var res=0; // sum of <len>
             var LParam,HParam,lenInSeq;
             while(true) {
                 if (chn.MPoint[pc]!==MSlur) break;
                 pc++;
                 var code = chn.MPoint[pc];
                 if (!(code >= 0 && code < 96)) break;
-                LParam = chn.MPoint[pc + 1];
-                HParam = chn.MPoint[pc + 2];
-                lenInSeq=(LParam + HParam * 256) * 2;
+                let {lenInSeq,increment}=t.parseLen(chn, pc);
                 res+=lenInSeq;
-                pc+=3;
+                pc+=increment;
             }
             return res;
         },
