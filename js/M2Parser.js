@@ -30,6 +30,8 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
         MBaseVol = 119,
         MLabel = 120,
         MWrtWav2 =121,
+        MSetLen=122, //   L cmd
+        MLenMark=123, // after realsound/ not used in por
 
         Mend = 255,
 
@@ -84,7 +86,7 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
         VDefault=65535,
         header=[100, 120, 101, 5, 110, 0, 102, 0, 107, 0, 115, 0, 0, 0, 118, 0, 116, 0],
         trailer=[255, 255, 255],
-        Version=1200
+        Version=1500
         ;
     var space=(/^(\s*(\/\*\/?([^\/]|[^*]\/|\r|\n)*\*\/)*(((\/\/)|;).*\r?\n)*)*/);
 
@@ -285,6 +287,8 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
             },
             setlen: function (node) {
                 ChInfo.Len=v.visit(node[1]);
+                wrt(MSetLen);
+                wrt16(ChInfo.Len);
                 //console.log("setlen",node,ChInfo.Len);
             },
             DefaultNum: function (node) {
@@ -410,8 +414,11 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
                 }
                 var li=v.visit(node[1]) ;
                 //console.log("Len",li);
-                wrt(li & 255);
-                wrt(div(li , 256));
+                if (li!==ChInfo.Len) {
+                    wrt(MLenMark);
+                    wrt(li & 255);
+                    wrt(div(li , 256));
+                }
             },
             zfm: function (node) {
                 //    0               1             2           3        4                 5                6          7

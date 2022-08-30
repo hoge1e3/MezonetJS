@@ -34,6 +34,8 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         MBaseVol = 119,
         MLabel = 120,
         MWrtWav2 =121,
+        MSetLen=122, //   L cmd
+        MLenMark=123, // after realsound/ not used in por
 
         Mend = 255,
 
@@ -171,6 +173,9 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         },
         load:function (t,d) {
             var ver=readLong(d);
+            if (ver>1200) {
+                t.useMLen=true;
+            }
             var chs=readByte(d);
             //var chdatas;
             //t.MPoint=chdatas=[];
@@ -379,6 +384,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                 chn.LfoD = 0;
                 chn.LfoDC = 0;
                 chn.Oct = 4;
+                chn.DefLen = SPS/2;
                 chn.soundMode = False;
             }
             t.Tempo = 120;// changed by MML t***
@@ -895,7 +901,18 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                     var code = chn.MPoint[pc], lenInSeq,noteOnInCtx,noteOffInCtx;
                     if (code >= 0 && code < 96 || code === MRest) {
                         noteOnInCtx=curCtxTime;
-                        lenInSeq=(LParam + HParam * 256) * 2;
+                        let increment=3;
+                        if (t.useMLen) {
+                            if (LParam===MLenMark) {
+                                lenInSeq=(chn.MPoint[pc + 2]+chn.MPoint[pc + 3]*256) * 2;
+                                increment=4;
+                            } else {
+                                lenInSeq=chn.DefLen;
+                                increment=1;
+                            }
+                        } else {
+                            lenInSeq=(LParam + HParam * 256) * 2;
+                        }
                         var slen=t.foresightSlurs(chn);
                         noteOffInCtx=noteOnInCtx+
                             t.convertDeltaTime(lenInSeq+slen, DU_SEQ,DU_CTX) ;
@@ -906,7 +923,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                         chn.MCount +=lenInSeq ;
                         // SPS=22050の場合 *2 を *1 に。
                         // SPS=x の場合   * (x/22050)
-                        chn.MPointC += 3;
+                        chn.MPointC += increment;
                     } else switch (code) {
                         case MPor:
                             noteOnInCtx=curCtxTime;
@@ -1056,6 +1073,10 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                             var fn=StrPas(chn.MPoint, pc+1);
                             t.RegPCM (fn,chn.MPoint[pc+1+fn.length+1]);
                             chn.MPointC+=fn.length +3;
+                            break;
+                        case MSetLen:
+                            chn.DefLen=(LParam + HParam * 256) * 2;
+                            chn.MPointC+=3;                            
                             break;
                         case Mend:
                             if (wctx) {
