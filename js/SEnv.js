@@ -909,7 +909,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                     if (code >= 0 && code < 96 || code === MRest) {
                         noteOnInCtx=curCtxTime;
                         let {lenInSeq, increment}=t.parseLen(chn, pc);
-                        console.log(lenInSeq, SPS96/lenInSeq, increment);
+                        //console.log(lenInSeq, SPS96/lenInSeq, increment);
                         var slen=t.foresightSlurs(chn, pc+increment);
                         noteOffInCtx=noteOnInCtx+
                             t.convertDeltaTime(lenInSeq+slen, DU_SEQ,DU_CTX) ;
