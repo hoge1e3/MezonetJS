@@ -36,6 +36,7 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         MWrtWav2 =121,
         MSetLen=122, //   L cmd
         MLenMark=123, // after realsound/ not used in por
+        MIni=124,
 
         Mend = 255,
 
@@ -1074,6 +1075,22 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
                         case MSetLen:
                             chn.DefLen=(LParam + HParam * 256) * 2;
                             chn.MPointC+=3;                            
+                            break;
+                        case MIni:
+                            //100, 120, 101, 5, 110, 0, 102, 0, 
+                            //107, 0, 115, 0, 0, 0, 118, 0, 116, 0
+                            chn.EVol=120;
+                            chn.ESpeed=5;
+                            chn.Detune=0;
+                            t.SelWav(ch, 0);
+                            chn.EShape = t.EnvDat[0];
+                            chn.CurEnv=0;
+                            chn.LfoSync = (0);
+                            chn.LfoV = (0) * 65536;
+                            chn.LfoA = (0);
+                            chn.LfoD = 0;
+                            chn.Sync = false;
+                            chn.MPointC++;
                             break;
                         case Mend:
                             if (wctx) {

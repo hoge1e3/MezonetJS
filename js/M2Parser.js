@@ -32,6 +32,7 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
         MWrtWav2 =121,
         MSetLen=122, //   L cmd
         MLenMark=123, // after realsound/ not used in por
+        MIni=124,
 
         Mend = 255,
 
@@ -84,7 +85,8 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
 //---------End include
         AtoG = [9,11,0,2,4,5,7],
         VDefault=65535,
-        header=[100, 120, 101, 5, 110, 0, 102, 0, 107, 0, 115, 0, 0, 0, 118, 0, 116, 0],
+        //header=[100, 120, 101, 5, 110, 0, 102, 0, 107, 0, 115, 0, 0, 0, 118, 0, 116, 0],
+        header=[MIni],
         trailer=[255, 255, 255],
         Version=1500
         ;
