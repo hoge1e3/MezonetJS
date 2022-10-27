@@ -78,7 +78,7 @@ define(["Grammar","Visitor","zfmExpr"],function (Grammar,Visitor,zfmExpr) {
         sinMax_s = 5,
         sinMax = 65536 >> sinMax_s, //2048,
         //SPS = 44100,
-        SPS96 = 22160*2,//    64*9*5*7==20160
+        SPS96 = 20160*2,//    64*9*5*7==20160
         /*SPS_60 = div(44100, 60),*/
         DivClock = 111860.78125,
         Loops = 163840,
