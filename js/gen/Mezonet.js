@@ -870,9 +870,9 @@ define("SEnv", ["Klass", "assert","promise","Tones.wdt"], function(Klass, assert
         Integer = Number,
         sinMax_s = 5,
         sinMax = 65536 >> sinMax_s, //2048,
-        SPS = 22160*2,
-        SPS96 = 22160,
-        SPS_60 = div(44100, 60),
+        SPS = 20160*2,
+        SPS96 = 20160,
+        //SPS_60 = div(44100, 60),
         DU_SEQ="DU_SEQ", DU_TRK="DU_TRK", DU_CTX="DU_CTX",// time delta units
         DivClock = 111860.78125,// See [1]
         Loops = 163840,
